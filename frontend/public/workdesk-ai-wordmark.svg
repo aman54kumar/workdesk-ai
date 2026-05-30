@@ -1,0 +1,20 @@
+<svg width="232" height="56" viewBox="0 0 232 56" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">WorkDesk AI</title>
+  <g transform="translate(2 2) scale(.82)">
+    <path d="M12 21.5C12 17.9 14.9 15 18.5 15H28" stroke="#dbeafe" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M41 15H45.5C49.1 15 52 17.9 52 21.5V41.5C52 45.1 49.1 48 45.5 48H42" stroke="#dbeafe" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M12 28V41.5C12 45.1 14.9 48 18.5 48" stroke="#dbeafe" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="19" cy="24" r="2.5" fill="#dbeafe"/>
+    <circle cx="27" cy="24" r="2.5" fill="#dbeafe"/>
+    <circle cx="35" cy="24" r="2.5" fill="#dbeafe"/>
+    <path d="M18 38L23 31H41L46 38H18Z" fill="#14b8c4"/>
+    <path d="M24 38H41V51H24V38Z" fill="#dbeafe"/>
+    <path d="M41 38H48V51H41V38Z" fill="#93c5fd"/>
+    <path d="M44 43H49" stroke="#0f1729" stroke-width="2.5" stroke-linecap="round"/>
+    <path d="M35 7L37.5 14.5L45 17L37.5 19.5L35 27L32.5 19.5L25 17L32.5 14.5L35 7Z" fill="#f59e0b"/>
+    <path d="M20 9L25 13" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+    <path d="M50 9L45 13" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <text x="60" y="35" fill="#e0f2fe" font-family="DM Sans, Inter, Arial, sans-serif" font-size="23" font-weight="700" letter-spacing="-.8">WorkDesk</text>
+  <text x="174" y="35" fill="#14b8c4" font-family="DM Sans, Inter, Arial, sans-serif" font-size="23" font-weight="700" letter-spacing="-.8">AI</text>
+</svg>

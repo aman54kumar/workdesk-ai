@@ -1,0 +1,35 @@
+# WorkDesk AI — Cursor Project Rules
+
+## Project identity
+
+Internal productivity assistant for Adit Microsys Pvt. Ltd.
+Historical full spec: `workdesk-ai-build-spec.md` (some items there are not implemented — see below).
+
+## Stack — current repo (source of truth)
+
+- Backend: Python 3.11, FastAPI, SQLAlchemy 2.x async, **aiosqlite**, SQLite cache
+- Frontend: **Angular 19** standalone components, Tailwind CSS 3
+- LLM: Ollama via FastAPI proxy only
+- OS: Windows for deployment scripts (NSSM, `.bat`)
+
+Not implemented in this repo (do not assume without checking): PostgreSQL, Alembic migrations, JWT login.
+
+## Critical constraints — never violate
+
+1. Uvicorn must always start with `--workers 1`. Never use multiple workers.
+2. Ollama generation must stay strictly serial — `app/services/job_queue.py` single consumer (replaces the old semaphore).
+3. Never use `EventSource` for streaming — use `fetch()` + `ReadableStream` in Angular.
+4. The frontend never calls Ollama directly; only the FastAPI backend does.
+5. Use Ollama `/api/chat`, not `/api/generate`.
+6. All deployment URLs and secrets come from `.env` via `app/config.py` — no hardcoded LAN IPs in Python.
+
+## Code style
+
+- Python: type hints, async/await, no sync DB I/O
+- Angular: standalone components only, no NgModules
+- Comments only for non-obvious decisions
+- Production frontend: `environment.prod.ts` is swapped via `angular.json` `fileReplacements`
+
+## When unsure
+
+Prefer the simpler option that matches `README.md` and existing code. Do not add auth or PostgreSQL unless explicitly requested.
