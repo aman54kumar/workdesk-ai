@@ -8,6 +8,7 @@ import { HistoryRestoreService } from '../../../core/services/history-restore.se
 
 import { HistoryService } from '../../../core/services/history.service';
 
+import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
 
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
@@ -145,10 +146,12 @@ export default class RiskRegisterComponent implements OnInit {
 
     this.gs.loadLimits();
 
-    const entry = this.restore.consume('risk_register');
-
-    if (entry) this.outputText.set(entry.output);
-
+    restoreFromHistory(this.restore.consume('risk_register'), {
+      applyInputs: (v) => {
+        if (v['input'] != null) this.input = v['input'];
+      },
+      setOutput: (t) => this.outputText.set(t),
+    });
   }
 
 

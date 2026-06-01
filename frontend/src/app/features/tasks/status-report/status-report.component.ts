@@ -8,6 +8,7 @@ import { HistoryRestoreService } from '../../../core/services/history-restore.se
 
 import { HistoryService } from '../../../core/services/history.service';
 
+import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
 
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
@@ -193,10 +194,15 @@ export default class StatusReportComponent implements OnInit {
 
     this.gs.loadLimits();
 
-    const entry = this.restore.consume('status_report');
-
-    if (entry) this.outputText.set(entry.output);
-
+    restoreFromHistory(this.restore.consume('status_report'), {
+      applyInputs: (v) => {
+        if (v['input'] != null) this.input = v['input'];
+        if (v['project_name'] != null) this.projectName = v['project_name'];
+        if (v['period'] != null) this.period = v['period'];
+        if (v['team'] != null) this.team = v['team'];
+      },
+      setOutput: (t) => this.outputText.set(t),
+    });
   }
 
 

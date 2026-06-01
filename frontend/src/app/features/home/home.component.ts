@@ -1,3 +1,5 @@
+// frontend/src/app/features/home/home.component.ts
+
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { toolIconAccent, toolIconPath } from '../../core/constants/tool-icons';
@@ -32,24 +34,24 @@ interface TrustSignal {
         <div class="command-grid pointer-events-none absolute inset-0" aria-hidden="true"></div>
         <div class="command-glow pointer-events-none absolute inset-0" aria-hidden="true"></div>
 
-        <div class="relative z-[1] grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(380px,0.95fr)] xl:items-stretch">
-          <div class="flex min-h-0 flex-col xl:justify-center">
-            <div class="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">
+        <div class="relative z-[1] grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(340px,0.95fr)] lg:items-start lg:gap-8">
+          <div class="hero-copy flex flex-col">
+            <div class="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">
               <span class="home-live-dot h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
               Local AI command center
             </div>
 
-            <div class="mb-5 flex items-start gap-4">
+            <div class="mb-4 flex items-start gap-4">
               <app-brand-logo [size]="52" [decorative]="true" />
-              <div>
-                <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-faint">WorkDesk AI</p>
-                <h1 class="max-w-3xl text-3xl font-bold tracking-tight text-content md:text-5xl md:leading-[1.05]">
-                  AI-powered writing tools, hosted and managed by Adit.
+              <div class="min-w-0">
+                <p class="mb-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-faint">WorkDesk AI</p>
+                <h1 class="max-w-3xl text-3xl font-bold tracking-tight text-content md:text-[2.65rem] md:leading-[1.08]">
+                  AI-powered writing tools, hosted and managed at Adit.
                 </h1>
               </div>
             </div>
 
-            <p class="max-w-2xl text-base leading-relaxed text-muted md:text-lg">
+            <p class="max-w-2xl text-base leading-relaxed text-muted md:text-[1.05rem]">
               WorkDesk AI helps teams draft emails, summarise meetings, improve tone, translate content, and more —
               all processed on the local Adit AI server, with nothing sent to external services.
             </p>

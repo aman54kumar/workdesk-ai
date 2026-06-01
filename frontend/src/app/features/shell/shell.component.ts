@@ -57,7 +57,9 @@ import { toolIconPath } from '../../core/constants/tool-icons';
           @if (sidebarCollapsed()) {
             <!-- Collapsed: icon logo + expand toggle -->
             <div class="flex flex-col items-center gap-2">
-              <app-brand-logo [size]="34" [decorative]="true" />
+              <a routerLink="/" aria-label="Go to home" class="rounded-lg transition-opacity hover:opacity-75">
+                <app-brand-logo [size]="34" [decorative]="true" />
+              </a>
               <button
                 type="button"
                 (click)="toggleSidebar()"
@@ -73,12 +75,14 @@ import { toolIconPath } from '../../core/constants/tool-icons';
           } @else {
             <!-- Expanded: compact wordmark + collapse toggle -->
             <div class="flex items-center justify-between gap-2">
-              <img
-                [src]="wordmarkSrc"
-                alt="WorkDesk AI"
-                class="h-12 min-w-0 flex-1 object-contain"
-                decoding="async"
-              />
+              <a routerLink="/" aria-label="Go to home" class="min-w-0 flex-1 rounded-lg transition-opacity hover:opacity-75">
+                <img
+                  [src]="wordmarkSrc"
+                  alt="WorkDesk AI"
+                  class="h-12 w-full object-contain"
+                  decoding="async"
+                />
+              </a>
               <button
                 type="button"
                 (click)="toggleSidebar()"
@@ -299,7 +303,7 @@ import { toolIconPath } from '../../core/constants/tool-icons';
                     </svg>
                   }
                 </button>
-                <span class="sidebar-version-badge rounded-full border px-2 py-0.5 text-[10px]">v1.1</span>
+                <span class="sidebar-version-badge rounded-full border px-2 py-0.5 text-[10px]">v1.0</span>
               </div>
             </div>
           } @else {

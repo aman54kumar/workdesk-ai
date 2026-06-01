@@ -20,6 +20,17 @@ export interface StreamHandle {
   cancel: () => void;
 }
 
+export interface CompanyProfileSectionPublic {
+  label: string;
+  content: string;
+}
+
+export interface CompanyProfileStatus {
+  available: boolean;
+  section_labels: string[];
+  sections: CompanyProfileSectionPublic[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class GenerateService {
   private limitsLoaded = false;
@@ -34,6 +45,14 @@ export class GenerateService {
         if (data.max_input_chars) this.maxInputChars = data.max_input_chars;
       })
       .catch(() => undefined);
+  }
+
+  fetchCompanyProfileStatus(): Promise<CompanyProfileStatus> {
+    return fetch(`${environment.apiUrl}/generate/company-profile-status`)
+      .then((r) => {
+        if (!r.ok) throw new Error('status failed');
+        return r.json() as Promise<CompanyProfileStatus>;
+      });
   }
 
   validateInputSize(variables: Record<string, string>): string | null {

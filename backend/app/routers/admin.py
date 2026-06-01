@@ -9,6 +9,7 @@ from app.schemas.admin import (
     AdminLoginRequest,
     AdminLoginResponse,
     AppFeedbackRow,
+    AdminDateBoundsResponse,
     AnalyticsSummaryResponse,
     AnalyticsToolRow,
     CompanyProfileBulkSave,
@@ -21,6 +22,7 @@ from app.schemas.admin import (
 )
 from app.services import company_profile_admin, prompts_admin, task_settings as task_settings_service
 from app.services.app_feedback import list_app_feedback
+from app.services.admin_dates import get_record_date_bounds
 from app.services.usage import analytics_by_tool, recent_feedback_comments
 from app.database import AsyncSessionLocal
 
@@ -161,6 +163,11 @@ async def reset_prompt(task_type: str, _: str = Depends(require_admin)):
 
 
 # --- Analytics ---
+
+
+@router.get("/date-bounds", response_model=AdminDateBoundsResponse)
+async def get_date_bounds(_: str = Depends(require_admin)):
+    return AdminDateBoundsResponse(**await get_record_date_bounds())
 
 
 def _parse_dt(value: str | None) -> datetime | None:

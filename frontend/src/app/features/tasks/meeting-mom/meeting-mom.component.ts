@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { GenerateService } from '../../../core/services/generate.service';
 import { HistoryRestoreService } from '../../../core/services/history-restore.service';
 import { HistoryService } from '../../../core/services/history.service';
+import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
 import { StreamingOutputComponent } from '../../../shared/components/streaming-output/streaming-output.component';
@@ -67,8 +68,12 @@ export default class MeetingMomComponent implements OnInit {
 
   ngOnInit(): void {
     this.gs.loadLimits();
-    const entry = this.restore.consume('meeting_mom');
-    if (entry) this.outputText.set(entry.output);
+    restoreFromHistory(this.restore.consume('meeting_mom'), {
+      applyInputs: (v) => {
+        if (v['input'] != null) this.input = v['input'];
+      },
+      setOutput: (t) => this.outputText.set(t),
+    });
   }
 
   onInputChange(): void {

@@ -10,7 +10,12 @@ from app.config import settings
 from app.prompts.resolver import resolve_prompt
 from app.prompts.templates import TASK_MODEL_MAP
 from app.schemas.admin import PublicTaskResponse
-from app.schemas.generate import CancelJobRequest, GenerateRequest
+from app.schemas.generate import (
+    CancelJobRequest,
+    CompanyProfileStatusResponse,
+    GenerateRequest,
+)
+from app.services.company_profile import build_company_context, company_profile_status
 from app.services.cache import get_cached, make_cache_key, set_cache
 from app.services import task_settings as task_settings_service
 from app.services.job_queue import cancel_job_by_id, enqueue_job, iter_job_frames
@@ -49,6 +54,11 @@ async def get_tasks():
     return await task_settings_service.list_public_tasks()
 
 
+@router.get("/company-profile-status", response_model=CompanyProfileStatusResponse)
+async def get_company_profile_status():
+    return CompanyProfileStatusResponse(**await company_profile_status())
+
+
 @router.post("/stream")
 async def generate_stream(request: GenerateRequest):
     if not await task_settings_service.is_task_active(request.task_type):
@@ -71,7 +81,17 @@ async def generate_stream(request: GenerateRequest):
     model = await task_settings_service.resolve_model(request.task_type)
     template = await resolve_prompt(request.task_type)
     system_prompt = template["system"]
-    user_prompt = template["user_template"].format(**request.variables)
+    variables = dict(request.variables)
+    if request.task_type == "eligibility_check":
+        cred = (variables.get("credentials") or "").strip()
+        if not cred:
+            profile = await build_company_context()
+            variables["credentials"] = (
+                profile
+                if profile
+                else "No company credentials are available. Mark all criteria as Needs Verification."
+            )
+    user_prompt = template["user_template"].format(**variables)
 
     bypass_cache = (
         request.task_type in NO_CACHE_TASK_TYPES or request.skip_cache

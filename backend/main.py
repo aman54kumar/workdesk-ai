@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     await stop_job_consumer()
 
 
-app = FastAPI(title="WorkDesk AI", version="1.1.0", lifespan=lifespan)
+app = FastAPI(title="WorkDesk AI", version="1.0.0", lifespan=lifespan)
 
 origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 app.add_middleware(

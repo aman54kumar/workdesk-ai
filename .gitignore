@@ -28,3 +28,6 @@ backend/company_docs/
 Thumbs.db
 Desktop.ini
 *.stackdump
+
+# Windows reserved device name created by Git Bash redirects
+/nul

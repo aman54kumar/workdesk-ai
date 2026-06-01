@@ -8,6 +8,7 @@ import { HistoryRestoreService } from '../../../core/services/history-restore.se
 
 import { HistoryService } from '../../../core/services/history.service';
 
+import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
 
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
@@ -181,10 +182,17 @@ export default class SummariseDocComponent implements OnInit {
 
     this.gs.loadLimits();
 
-    const entry = this.restore.consume('summarise_doc');
-
-    if (entry) this.outputText.set(entry.output);
-
+    restoreFromHistory(this.restore.consume('summarise_doc'), {
+      applyInputs: (v) => {
+        if (v['user_input'] != null) {
+          this.input = v['user_input'];
+        } else if (v['input'] != null) {
+          this.input = v['input'].replace(/\n\nProvide exactly \d+ bullet points\.\s*$/, '');
+        }
+        if (v['bullet_count'] != null) this.bulletCount = v['bullet_count'];
+      },
+      setOutput: (t) => this.outputText.set(t),
+    });
   }
 
 
@@ -210,7 +218,11 @@ export default class SummariseDocComponent implements OnInit {
 
       'summarise_doc',
 
-      { input: inputWithCount },
+      {
+        input: inputWithCount,
+        user_input: this.input.trim(),
+        bullet_count: this.bulletCount,
+      },
 
       {
 

@@ -1,7 +1,14 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
+import {
+  clientDateBoundsFallback,
+  normalizeRangeDates,
+  validateDateRange,
+  type DateBounds,
+} from '../../core/utils/date-range-validation';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { DateFieldComponent } from '../../shared/components/date-field/date-field.component';
 import {
   AdminService,
   AnalyticsSummary,
@@ -12,13 +19,29 @@ import {
 @Component({
   selector: 'app-admin-analytics',
   standalone: true,
-  imports: [FormsModule, DecimalPipe],
+  imports: [FormsModule, DecimalPipe, DateFieldComponent],
   template: `
-    <div class="mb-4 flex flex-wrap gap-3">
-      <input type="date" class="field-input text-sm" [(ngModel)]="sinceDate" />
-      <input type="date" class="field-input text-sm" [(ngModel)]="untilDate" />
-      <button type="button" class="btn-secondary text-sm" (click)="reload()">Apply range</button>
-    </div>
+    @if (rangeError()) {
+      <p class="mb-2 text-sm text-danger">{{ rangeError() }}</p>
+    }
+    <form class="date-range-bar mb-4 flex w-full items-center gap-2" (ngSubmit)="applyRange()">
+      <app-date-field
+        [(ngModel)]="sinceDate"
+        name="sinceDate"
+        ariaLabel="From date"
+        [minDate]="bounds().minDate"
+        [maxDate]="sinceMax()"
+      />
+      <span class="shrink-0 text-xs font-medium text-muted" aria-hidden="true">to</span>
+      <app-date-field
+        [(ngModel)]="untilDate"
+        name="untilDate"
+        ariaLabel="Until date"
+        [minDate]="untilMin()"
+        [maxDate]="bounds().maxDate"
+      />
+      <button type="submit" class="btn-secondary shrink-0 text-sm">Apply range</button>
+    </form>
 
     @if (loadError()) {
       <p class="text-sm text-danger">{{ loadError() }}</p>
@@ -94,13 +117,49 @@ export default class AdminAnalyticsComponent implements OnInit {
   loadError = signal('');
   sinceDate = '';
   untilDate = '';
+  bounds = signal<DateBounds>(clientDateBoundsFallback());
+  rangeError = signal('');
 
   ngOnInit(): void {
+    this.admin.getDateBounds().subscribe({
+      next: (row) => {
+        this.bounds.set({ minDate: row.min_date, maxDate: row.max_date });
+        this.syncDatesToBounds();
+        this.reload();
+      },
+      error: () => this.reload(),
+    });
+  }
+
+  sinceMax(): string {
+    const max = this.bounds().maxDate;
+    return this.untilDate && this.untilDate < max ? this.untilDate : max;
+  }
+
+  untilMin(): string {
+    const min = this.bounds().minDate;
+    return this.sinceDate && this.sinceDate > min ? this.sinceDate : min;
+  }
+
+  applyRange(): void {
+    const err = validateDateRange(this.sinceDate, this.untilDate, this.bounds());
+    if (err) {
+      this.rangeError.set(err);
+      return;
+    }
+    this.rangeError.set('');
     this.reload();
+  }
+
+  private syncDatesToBounds(): void {
+    const next = normalizeRangeDates(this.sinceDate, this.untilDate, this.bounds());
+    this.sinceDate = next.since;
+    this.untilDate = next.until;
   }
 
   reload(): void {
     this.loading.set(true);
+    this.loadError.set('');
     const since = this.sinceDate ? `${this.sinceDate}T00:00:00` : undefined;
     const until = this.untilDate ? `${this.untilDate}T23:59:59` : undefined;
     this.admin.getAnalyticsSummary(since, until).subscribe({

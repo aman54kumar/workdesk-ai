@@ -4,7 +4,7 @@
 
 | | |
 | --- | --- |
-| **Version** | 1.1 |
+| **Version** | 1.0 |
 | **Access** | Company intranet (office LAN or VPN). Restrict network access before wider rollout. |
 | **End users** | No login—open the app URL and pick a tool. Recent results and favorites are saved per browser. |
 | **Operators** | [Admin console](#admin-console) to enable/disable tools, assign models, edit prompts, maintain a company profile, view usage analytics, and (optionally) manage Q&A documents. |
@@ -18,7 +18,7 @@
 - [User experience](#user-experience)
 - [Admin console](#admin-console)
 - [How it works](#how-it-works)
-- [What v1.1 is not](#what-v11-is-not)
+- [What v1.0 is not](#what-v10-is-not)
 - [Stack](#stack)
 - [Prerequisites](#prerequisites)
 - [Local development](#local-development)
@@ -153,7 +153,7 @@ When enabled, an admin maintains a folder of company documents (policies, rules,
 
 ---
 
-## What v1.1 is not
+## What v1.0 is not
 
 - **Not** a free-form ChatGPT-style chat—only the guided task tools.
 - **Not** per-user file upload—end users type or paste only.

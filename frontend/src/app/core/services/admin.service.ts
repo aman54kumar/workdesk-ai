@@ -38,6 +38,11 @@ export interface PromptTemplate {
   updated_at: string | null;
 }
 
+export interface AdminDateBounds {
+  min_date: string;
+  max_date: string;
+}
+
 export interface AnalyticsSummary {
   total_requests: number;
   cache_hit_rate: number;
@@ -175,6 +180,12 @@ export class AdminService {
       `${environment.apiUrl}/admin/prompts/${taskType}`,
       { headers: this.authHeaders() },
     );
+  }
+
+  getDateBounds(): Observable<AdminDateBounds> {
+    return this.http.get<AdminDateBounds>(`${environment.apiUrl}/admin/date-bounds`, {
+      headers: this.authHeaders(),
+    });
   }
 
   getAnalyticsSummary(since?: string, until?: string): Observable<AnalyticsSummary> {

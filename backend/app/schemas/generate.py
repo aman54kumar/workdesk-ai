@@ -21,3 +21,14 @@ class GenerateRequest(BaseModel):
 
 class CancelJobRequest(BaseModel):
     job_id: str
+
+
+class CompanyProfileSectionPublic(BaseModel):
+    label: str
+    content: str
+
+
+class CompanyProfileStatusResponse(BaseModel):
+    available: bool
+    section_labels: list[str]
+    sections: list[CompanyProfileSectionPublic] = []

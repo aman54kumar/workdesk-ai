@@ -90,6 +90,11 @@ class PromptTemplateSave(BaseModel):
     use_company_profile: bool = False
 
 
+class AdminDateBoundsResponse(BaseModel):
+    min_date: str
+    max_date: str
+
+
 class AnalyticsSummaryResponse(BaseModel):
     total_requests: int
     cache_hit_rate: float

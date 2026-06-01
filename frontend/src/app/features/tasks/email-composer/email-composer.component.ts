@@ -5,6 +5,7 @@ import { GenerateService } from '../../../core/services/generate.service';
 import { HistoryRestoreService } from '../../../core/services/history-restore.service';
 import { HistoryService } from '../../../core/services/history.service';
 import { ThemeService } from '../../../core/services/theme.service';
+import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
 import { QueueStatusComponent } from '../../../shared/components/queue-status/queue-status.component';
@@ -179,8 +180,14 @@ export default class EmailComposerComponent implements OnInit {
 
   ngOnInit(): void {
     this.gs.loadLimits();
-    const entry = this.restore.consume('email_composer');
-    if (entry) this.rawText.set(entry.output);
+    restoreFromHistory(this.restore.consume('email_composer'), {
+      applyInputs: (v) => {
+        if (v['input'] != null) this.input = v['input'];
+        if (v['tone'] != null) this.tone = v['tone'];
+        if (v['length'] != null) this.length = v['length'];
+      },
+      setOutput: (t) => this.rawText.set(t),
+    });
   }
 
   formattedHtml(): SafeHtml {

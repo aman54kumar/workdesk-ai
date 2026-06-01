@@ -15,4 +15,4 @@ if errorlevel 1 (
   exit /b 1
 )
 
-serve "%DIST%" -l tcp://0.0.0.0:80 -s
+serve "%DIST%" -l tcp://0.0.0.0:4000 -s

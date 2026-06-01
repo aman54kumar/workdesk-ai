@@ -62,3 +62,22 @@ async def build_company_context() -> str:
         if text:
             parts.append(f"## {row.label}\n{text}")
     return "\n\n".join(parts)
+
+
+async def company_profile_status() -> dict:
+    """Public read-only snapshot for tools that use the admin company profile."""
+    async with AsyncSessionLocal() as session:
+        rows = (
+            await session.scalars(
+                select(CompanyProfileSection)
+                .where(CompanyProfileSection.enabled.is_(True))
+                .order_by(CompanyProfileSection.sort_order, CompanyProfileSection.id)
+            )
+        ).all()
+    sections: list[dict[str, str]] = []
+    for row in rows:
+        text = (row.content or "").strip()
+        if text:
+            sections.append({"label": row.label, "content": text})
+    labels = [s["label"] for s in sections]
+    return {"available": bool(labels), "section_labels": labels, "sections": sections}
