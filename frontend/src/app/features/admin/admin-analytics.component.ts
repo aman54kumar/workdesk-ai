@@ -46,7 +46,8 @@ import {
       <p class="text-sm text-danger">{{ loadError() }}</p>
     } @else if (loading()) {
       <p class="text-sm text-muted">Loading…</p>
-    } @else if (dash(); as d) {
+    } @else {
+      @if (dash(); as d) {
       <p class="mb-4 text-xs text-muted">{{ d.ips.tracking_note }}</p>
 
       <h2 class="mb-2 text-sm font-semibold">Overview</h2>
@@ -296,6 +297,7 @@ import {
           <p class="text-sm text-muted">No comments in this range.</p>
         }
       </div>
+      }
     }
   `,
 })
