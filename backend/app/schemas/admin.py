@@ -1,6 +1,4 @@
-from pydantic import BaseModel, field_validator
-
-from app.config import settings
+from pydantic import BaseModel
 
 
 class AdminLoginRequest(BaseModel):
@@ -28,16 +26,6 @@ class TaskSettingResponse(BaseModel):
 class TaskSettingUpdate(BaseModel):
     is_active: bool | None = None
     model_override: str | None = None
-
-    @field_validator("model_override")
-    @classmethod
-    def validate_model_override(cls, v: str | None) -> str | None:
-        if v is not None and v != "" and v not in settings.allowed_model_override_set:
-            raise ValueError(
-                f"Invalid model '{v}'. "
-                f"Must be one of: {sorted(settings.allowed_model_override_set)}"
-            )
-        return v if v else None
 
 
 class PublicTaskResponse(BaseModel):
@@ -131,3 +119,61 @@ class AppFeedbackRow(BaseModel):
     ip_address: str | None
     user_agent: str | None
     created_at: str
+
+
+class OrgLlmSettingsResponse(BaseModel):
+    local_backend: str
+    local_base_url: str
+    local_api_key_set: bool
+    model_default: str
+    model_code: str
+    model_quality: str
+    allowed_models: list[str]
+    allow_user_cloud: bool
+    allowed_cloud_providers: list[str]
+    org_display_name: str
+    tier_models: dict[str, str]
+    cloud_refresh_openai_key_set: bool = False
+    cloud_refresh_anthropic_key_set: bool = False
+    cloud_refresh_google_key_set: bool = False
+    cloud_presets_refreshed_at: str | None = None
+
+
+class OrgLlmSettingsUpdate(BaseModel):
+    local_backend: str | None = None
+    local_base_url: str | None = None
+    local_api_key: str | None = None
+    clear_local_api_key: bool = False
+    model_default: str | None = None
+    model_code: str | None = None
+    model_quality: str | None = None
+    allowed_models: list[str] | None = None
+    allow_user_cloud: bool | None = None
+    allowed_cloud_providers: list[str] | None = None
+    org_display_name: str | None = None
+    cloud_refresh_openai_key: str | None = None
+    cloud_refresh_anthropic_key: str | None = None
+    cloud_refresh_google_key: str | None = None
+    clear_cloud_refresh_openai_key: bool = False
+    clear_cloud_refresh_anthropic_key: bool = False
+    clear_cloud_refresh_google_key: bool = False
+
+
+class RefreshCloudPresetsResponse(BaseModel):
+    ok: bool
+    skipped: bool | None = None
+    reason: str | None = None
+    refreshed_providers: list[str] | None = None
+    errors: dict[str, str] | None = None
+    refreshed_at: str | None = None
+
+
+class RefreshModelsResponse(BaseModel):
+    models: list[str]
+
+
+class TestConnectionResponse(BaseModel):
+    ok: bool
+    model_count: int | None = None
+    sample_models: list[str] | None = None
+    error: str | None = None

@@ -5,6 +5,7 @@ import { HistoryRestoreService } from '../../../core/services/history-restore.se
 import { HistoryService } from '../../../core/services/history.service';
 import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
+import { LlmSourceBadgeComponent } from '../../../shared/components/llm-source-badge/llm-source-badge.component';
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
 import { CompanyProfileViewerComponent } from '../../../shared/components/company-profile-viewer/company-profile-viewer.component';
 import { StreamingOutputComponent } from '../../../shared/components/streaming-output/streaming-output.component';
@@ -13,7 +14,7 @@ import type { CompanyProfileSectionPublic } from '../../../core/services/generat
 @Component({
   selector: 'app-eligibility-check',
   standalone: true,
-  imports: [FormsModule, GenerationActionsComponent, CompanyProfileViewerComponent, StreamingOutputComponent],
+  imports: [FormsModule, GenerationActionsComponent, CompanyProfileViewerComponent, StreamingOutputComponent, LlmSourceBadgeComponent],
   template: `
     <div class="page-wrap">
       <h2 class="page-title">Eligibility Check</h2>
@@ -100,6 +101,8 @@ import type { CompanyProfileSectionPublic } from '../../../core/services/generat
           </div>
         }
       </div>
+
+      <app-llm-source-badge />
 
       <div class="flex gap-2 mb-5">
         <app-generation-actions

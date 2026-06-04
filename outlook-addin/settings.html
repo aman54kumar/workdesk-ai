@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Settings — WorkDesk AI</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/src/styles/shared.css"/>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <a href="taskpane.html" class="icon-btn" title="Back" aria-label="Back to compose">
+        <span id="iconBack"></span>
+      </a>
+      <div class="brand">
+        <div class="brand-mark">
+          <picture>
+            <source srcset="/assets/workdesk-ai-icon.svg" media="(prefers-color-scheme: dark)"/>
+            <img src="/assets/workdesk-ai-icon-light.svg" alt="WorkDesk AI" width="38" height="38"/>
+          </picture>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Settings</h1>
+          <p class="brand-sub">Connection &amp; AI model</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="settings-main">
+      <div class="card">
+        <h2 class="card-title" style="margin-bottom:12px">Connection</h2>
+        <label class="label" for="apiUrl">WorkDesk API URL</label>
+        <input type="url" id="apiUrl" class="field" placeholder="https://localhost:3000/workdesk-api" autocomplete="off"/>
+        <p class="hint">Use <strong>https://localhost:3000/workdesk-api</strong> for local dev (HTTPS add-in). Run <strong>Test connection</strong> after changing.</p>
+
+        <label class="label" for="appUrl" style="margin-top:16px">Web app URL</label>
+        <input type="url" id="appUrl" class="field" placeholder="http://localhost:4200" autocomplete="off"/>
+        <button type="button" id="btnOpenApp" class="btn btn-secondary" style="width:100%;margin-top:10px">
+          <span id="iconOpenApp"></span>
+          Open WorkDesk AI
+        </button>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title" style="margin-bottom:12px">AI source</h2>
+        <label class="label" for="llmSource">Source</label>
+        <select id="llmSource" class="field">
+          <option value="local">Local (organization)</option>
+          <option value="cloud" id="llmSourceCloud">Cloud (my API key)</option>
+        </select>
+
+        <div id="localBlock" style="margin-top:16px">
+          <label class="label" for="localModel">Local model</label>
+          <select id="localModel" class="field">
+            <option value="">Organization default</option>
+          </select>
+          <p id="localHint" class="hint"></p>
+        </div>
+
+        <div id="cloudBlock" class="hidden" style="margin-top:16px">
+          <label class="label" for="cloudProvider">Provider</label>
+          <select id="cloudProvider" class="field"></select>
+
+          <label class="label" for="cloudModel" style="margin-top:12px">Model</label>
+          <select id="cloudModel" class="field"></select>
+          <input type="text" id="cloudModelCustom" class="field hidden" placeholder="Model id" style="margin-top:8px"/>
+
+          <label class="label" for="cloudApiKey" style="margin-top:12px">API key</label>
+          <input type="password" id="cloudApiKey" class="field" autocomplete="off"/>
+
+          <div id="customUrlBlock" class="hidden" style="margin-top:12px">
+            <label class="label" for="cloudBaseUrl">Custom base URL</label>
+            <input type="url" id="cloudBaseUrl" class="field" placeholder="https://api.example.com/v1"/>
+          </div>
+          <p id="cloudHint" class="hint"></p>
+        </div>
+      </div>
+
+      <div class="settings-actions">
+        <button type="button" id="btnSave" class="btn btn-primary">Save settings</button>
+        <button type="button" id="btnTest" class="btn btn-secondary">Test connection</button>
+        <button type="button" id="btnUseProxy" class="btn btn-secondary">Use dev proxy URL</button>
+      </div>
+      <p id="saveStatus" class="status-line" role="status"></p>
+    </main>
+  </div>
+  <script type="module" src="/src/settings/settings.ts"></script>
+</body>
+</html>

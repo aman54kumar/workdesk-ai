@@ -20,6 +20,24 @@ export interface AllowedModels {
   tiers: Record<string, string>;
 }
 
+export interface OrgLlmSettings {
+  local_backend: string;
+  local_base_url: string;
+  local_api_key_set: boolean;
+  model_default: string;
+  model_code: string;
+  model_quality: string;
+  allowed_models: string[];
+  allow_user_cloud: boolean;
+  allowed_cloud_providers: string[];
+  org_display_name: string;
+  tier_models: Record<string, string>;
+  cloud_refresh_openai_key_set?: boolean;
+  cloud_refresh_anthropic_key_set?: boolean;
+  cloud_refresh_google_key_set?: boolean;
+  cloud_presets_refreshed_at?: string | null;
+}
+
 export interface CompanyProfileSection {
   id: number;
   key: string;
@@ -119,6 +137,58 @@ export class AdminService {
     return this.http.get<AllowedModels>(`${environment.apiUrl}/admin/models`, {
       headers: this.authHeaders(),
     });
+  }
+
+  getLlmSettings(): Observable<OrgLlmSettings> {
+    return this.http.get<OrgLlmSettings>(`${environment.apiUrl}/admin/llm-settings`, {
+      headers: this.authHeaders(),
+    });
+  }
+
+  saveLlmSettings(body: Record<string, unknown>): Observable<OrgLlmSettings> {
+    return this.http.put<OrgLlmSettings>(
+      `${environment.apiUrl}/admin/llm-settings`,
+      body,
+      { headers: this.authHeaders() },
+    );
+  }
+
+  refreshLlmModels(): Observable<{ models: string[] }> {
+    return this.http.post<{ models: string[] }>(
+      `${environment.apiUrl}/admin/llm-settings/refresh-models`,
+      {},
+      { headers: this.authHeaders() },
+    );
+  }
+
+  testLlmConnection(): Observable<{ ok: boolean; model_count?: number; error?: string }> {
+    return this.http.post<{ ok: boolean; model_count?: number; error?: string }>(
+      `${environment.apiUrl}/admin/llm-settings/test`,
+      {},
+      { headers: this.authHeaders() },
+    );
+  }
+
+  refreshCloudPresets(): Observable<{
+    ok: boolean;
+    skipped?: boolean;
+    reason?: string;
+    refreshed_providers?: string[];
+    errors?: Record<string, string>;
+    refreshed_at?: string;
+  }> {
+    return this.http.post<{
+      ok: boolean;
+      skipped?: boolean;
+      reason?: string;
+      refreshed_providers?: string[];
+      errors?: Record<string, string>;
+      refreshed_at?: string;
+    }>(
+      `${environment.apiUrl}/admin/llm-settings/refresh-cloud-presets`,
+      {},
+      { headers: this.authHeaders() },
+    );
   }
 
   updateTask(

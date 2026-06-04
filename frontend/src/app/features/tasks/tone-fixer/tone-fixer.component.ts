@@ -5,6 +5,7 @@ import { HistoryRestoreService } from '../../../core/services/history-restore.se
 import { HistoryService } from '../../../core/services/history.service';
 import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
+import { LlmSourceBadgeComponent } from '../../../shared/components/llm-source-badge/llm-source-badge.component';
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
 import { StreamingOutputComponent } from '../../../shared/components/streaming-output/streaming-output.component';
 
@@ -19,7 +20,7 @@ const TONE_OPTIONS = [
 @Component({
   selector: 'app-tone-fixer',
   standalone: true,
-  imports: [FormsModule, GenerationActionsComponent, StreamingOutputComponent],
+  imports: [FormsModule, GenerationActionsComponent, StreamingOutputComponent, LlmSourceBadgeComponent],
   template: `
     <div class="page-wrap">
       <h2 class="page-title">Tone Fixer</h2>
@@ -51,6 +52,8 @@ const TONE_OPTIONS = [
           </div>
         </div>
       </div>
+
+      <app-llm-source-badge />
 
       <div class="flex gap-2 mb-5">
         <app-generation-actions

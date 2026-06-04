@@ -15,6 +15,10 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'tools', pathMatch: 'full' },
       {
+        path: 'llm-settings',
+        loadComponent: () => import('./features/admin/admin-llm-settings.component'),
+      },
+      {
         path: 'tools',
         loadComponent: () => import('./features/admin/admin-tools.component'),
       },

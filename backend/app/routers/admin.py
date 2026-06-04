@@ -15,15 +15,29 @@ from app.schemas.admin import (
     CompanyProfileBulkSave,
     CompanyProfileSectionResponse,
     FeedbackCommentRow,
+    OrgLlmSettingsResponse,
+    OrgLlmSettingsUpdate,
     PromptTemplateResponse,
     PromptTemplateSave,
+    RefreshCloudPresetsResponse,
+    RefreshModelsResponse,
     TaskSettingResponse,
     TaskSettingUpdate,
+    TestConnectionResponse,
 )
 from app.services import company_profile_admin, prompts_admin, task_settings as task_settings_service
 from app.services.app_feedback import list_app_feedback
 from app.services.admin_dates import get_record_date_bounds
 from app.services.usage import analytics_by_tool, recent_feedback_comments
+from app.services.org_llm_settings import (
+    config_to_admin_dict,
+    fetch_remote_model_names,
+    get_admin_llm_settings_dict,
+    get_org_llm_settings,
+    test_local_connection,
+    update_org_llm_settings,
+)
+from app.services.cloud_model_presets import refresh_cloud_presets
 from app.database import AsyncSessionLocal
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -44,14 +58,60 @@ async def admin_login(body: AdminLoginRequest):
 
 @router.get("/models")
 async def list_allowed_models(_: str = Depends(require_admin)):
+    org = await get_org_llm_settings()
     return {
-        "models": sorted(settings.allowed_model_override_set),
-        "tiers": {
-            "default": settings.OLLAMA_MODEL_DEFAULT,
-            "code": settings.OLLAMA_MODEL_CODE,
-            "quality": settings.OLLAMA_MODEL_QUALITY,
-        },
+        "models": sorted(org.allowed_models),
+        "tiers": org.tier_models(),
     }
+
+
+@router.get("/llm-settings", response_model=OrgLlmSettingsResponse)
+async def get_llm_settings(_: str = Depends(require_admin)):
+    return OrgLlmSettingsResponse(**await get_admin_llm_settings_dict())
+
+
+@router.put("/llm-settings", response_model=OrgLlmSettingsResponse)
+async def save_llm_settings(
+    body: OrgLlmSettingsUpdate,
+    _: str = Depends(require_admin),
+):
+    changes = body.model_dump(exclude_unset=True)
+    if changes.pop("clear_local_api_key", False):
+        changes["local_api_key"] = None
+    if changes.pop("clear_cloud_refresh_openai_key", False):
+        changes["cloud_refresh_openai_key"] = None
+    if changes.pop("clear_cloud_refresh_anthropic_key", False):
+        changes["cloud_refresh_anthropic_key"] = None
+    if changes.pop("clear_cloud_refresh_google_key", False):
+        changes["cloud_refresh_google_key"] = None
+    await update_org_llm_settings(**changes)
+    return OrgLlmSettingsResponse(**await get_admin_llm_settings_dict())
+
+
+@router.post("/llm-settings/refresh-cloud-presets", response_model=RefreshCloudPresetsResponse)
+async def refresh_cloud_presets_admin(_: str = Depends(require_admin)):
+    result = await refresh_cloud_presets(force=True)
+    return RefreshCloudPresetsResponse(**result)
+
+
+@router.post("/llm-settings/refresh-models", response_model=RefreshModelsResponse)
+async def refresh_llm_models(_: str = Depends(require_admin)):
+    org = await get_org_llm_settings()
+    try:
+        models = await fetch_remote_model_names(org)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Could not fetch models: {exc}",
+        ) from exc
+    return RefreshModelsResponse(models=models)
+
+
+@router.post("/llm-settings/test", response_model=TestConnectionResponse)
+async def test_llm_connection(_: str = Depends(require_admin)):
+    org = await get_org_llm_settings()
+    result = await test_local_connection(org)
+    return TestConnectionResponse(**result)
 
 
 @router.get("/tasks", response_model=list[TaskSettingResponse])
@@ -72,6 +132,9 @@ async def patch_admin_task(
             detail="No fields to update",
         )
 
+    if "model_override" in changes:
+        await _validate_model_override(changes.get("model_override"))
+
     try:
         updated = await task_settings_service.update_task_setting(
             task_type,
@@ -89,6 +152,20 @@ async def patch_admin_task(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unknown task")
 
     return updated
+
+
+async def _validate_model_override(model_override: str | None) -> None:
+    if model_override is None or model_override == "":
+        return
+    org = await get_org_llm_settings()
+    if model_override not in org.allowed_model_set():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"Invalid model '{model_override}'. "
+                f"Must be one of: {sorted(org.allowed_model_set())}"
+            ),
+        )
 
 
 # --- Company profile ---

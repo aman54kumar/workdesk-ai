@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WorkDesk AI</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="/src/styles/shared.css"/>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">
+          <picture>
+            <source srcset="/assets/workdesk-ai-icon.svg" media="(prefers-color-scheme: dark)"/>
+            <img src="/assets/workdesk-ai-icon-light.svg" alt="WorkDesk AI" width="38" height="38"/>
+          </picture>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Email Composer</h1>
+        </div>
+      </div>
+      <nav class="toolbar" aria-label="Quick actions">
+        <button type="button" id="btnOpenApp" class="icon-btn" title="Open full app" aria-label="Open WorkDesk web app">
+          <span id="iconOpenApp"></span>
+        </button>
+        <a href="settings.html" class="icon-btn" title="Settings" aria-label="Settings">
+          <span id="iconSettings"></span>
+        </a>
+      </nav>
+    </header>
+
+    <div class="tab-bar" role="tablist" aria-label="Main">
+      <button type="button" class="tab is-active" role="tab" id="tabCompose" aria-selected="true" aria-controls="panelCompose">
+        <span id="iconTabCompose"></span>
+        Compose
+      </button>
+      <button type="button" class="tab" role="tab" id="tabHistory" aria-selected="false" aria-controls="panelHistory">
+        <span id="iconTabHistory"></span>
+        History
+      </button>
+      <span class="tab-ink" aria-hidden="true"></span>
+    </div>
+
+    <div id="panelCompose" class="tab-panel is-active" role="tabpanel" aria-labelledby="tabCompose">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Your draft</h2>
+          <button type="button" id="btnRefresh" class="icon-btn" title="Refresh from email" aria-label="Refresh draft from email">
+            <span id="iconRefresh"></span>
+          </button>
+        </div>
+        <label class="sr-only" for="draftPreview">Current email draft</label>
+        <textarea id="draftPreview" class="preview" readonly rows="4" placeholder="Type in the email body, then refresh…"></textarea>
+        <p id="draftEmpty" class="hint hidden">Draft is empty. Add text in Outlook, then refresh.</p>
+        <p class="hint">Signature is kept on insert and restore.</p>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title" style="margin-bottom:12px">Options</h2>
+        <div class="options-grid">
+          <div>
+            <label class="label" for="tone">Tone</label>
+            <select id="tone" class="field">
+              <option value="Formal">Formal</option>
+              <option value="Internal & team">Internal &amp; Team</option>
+              <option value="Government & official">Government &amp; Official</option>
+            </select>
+          </div>
+          <div>
+            <span class="label" id="lengthLabel">Length</span>
+            <div class="segmented" role="group" aria-labelledby="lengthLabel">
+              <button type="button" class="is-active" data-length="Standard">Standard</button>
+              <button type="button" data-length="Brief">Brief</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p id="llmBadge" class="model-chip">Loading model…</p>
+
+      <div id="errorBox" class="alert alert-error hidden" role="alert"></div>
+      <p id="queueStatus" class="alert alert-queue hidden" role="status"></p>
+
+      <div class="generate-area">
+        <button type="button" id="btnGenerate" class="btn btn-primary">
+          <span id="iconGenerate"></span>
+          Generate email
+        </button>
+        <button type="button" id="btnStop" class="btn btn-secondary hidden">
+          <span id="iconStop"></span>
+          Stop
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Generated text</h2>
+          <span id="statusGenerating" class="status-pill hidden">Generating…</span>
+        </div>
+        <label class="sr-only" for="output">AI output</label>
+        <textarea id="output" class="output" readonly rows="8" placeholder="Output appears here after you generate…"></textarea>
+        <div class="btn-row">
+          <button type="button" id="btnInsert" class="btn btn-primary" disabled>
+            <span id="iconInsert"></span>
+            Insert
+          </button>
+          <button type="button" id="btnCopy" class="btn btn-secondary" disabled title="Copy" aria-label="Copy to clipboard">
+            <span id="iconCopy"></span>
+          </button>
+        </div>
+        <p id="insertHint" class="hint hidden">Could not write to the email. Use Copy and paste manually.</p>
+      </div>
+    </div>
+
+    <div id="panelHistory" class="tab-panel" role="tabpanel" aria-labelledby="tabHistory" hidden>
+      <div class="card-header" style="margin-bottom:12px">
+        <h2 class="card-title">Recent versions</h2>
+        <button type="button" id="btnClearHistory" class="btn-ghost">Clear all</button>
+      </div>
+      <p class="hint" style="margin-top:0;margin-bottom:12px">Saved when you insert into the email. Restore your original draft or re-apply a generated version.</p>
+      <ul id="historyList" class="history-list" aria-live="polite"></ul>
+      <div id="historyEmpty" class="empty-state">
+        <span id="iconEmptyHistory"></span>
+        <p>No history yet.<br/>Insert an email to save a version here.</p>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/src/taskpane/taskpane.ts"></script>
+</body>
+</html>

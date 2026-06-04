@@ -9,12 +9,14 @@ import { ThemeService } from '../../core/services/theme.service';
 import { HistoryService, HistoryEntry } from '../../core/services/history.service';
 import { HistoryRestoreService } from '../../core/services/history-restore.service';
 import { BrandLogoComponent } from '../../shared/components/brand-logo/brand-logo.component';
+import { AiSettingsModalComponent } from '../../shared/components/ai-settings-modal/ai-settings-modal.component';
+import { LlmSettingsService } from '../../core/services/llm-settings.service';
 import { toolIconPath } from '../../core/constants/tool-icons';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, BrandLogoComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, BrandLogoComponent, AiSettingsModalComponent],
   template: `
     <div class="relative flex h-screen overflow-hidden bg-canvas text-content">
 
@@ -270,6 +272,16 @@ import { toolIconPath } from '../../core/constants/tool-icons';
         <div class="sidebar-footer relative z-10 border-t px-3.5 py-3">
           @if (!sidebarCollapsed()) {
             <div class="mb-2.5">
+              <button type="button" (click)="llm.openAiSettings()"
+                class="sidebar-feedback-btn flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-colors">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+                AI model settings
+              </button>
+            </div>
+            <div class="mb-2.5">
               <a routerLink="/feedback" class="sidebar-feedback-btn flex w-full items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-semibold transition-colors">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75"
@@ -280,7 +292,7 @@ import { toolIconPath } from '../../core/constants/tool-icons';
             </div>
             <div class="flex items-center justify-between gap-2">
               <div class="min-w-0">
-                <p class="sidebar-footer-title truncate text-[11.5px] font-medium">Adit Microsys Pvt. Ltd.</p>
+                <p class="sidebar-footer-title truncate text-[11.5px] font-medium">{{ orgDisplayName() }}</p>
                 <p class="sidebar-footer-sub truncate text-[10px]">Private · Internal use only</p>
               </div>
               <div class="flex flex-shrink-0 items-center gap-1.5">
@@ -413,6 +425,7 @@ import { toolIconPath } from '../../core/constants/tool-icons';
         </div>
       </main>
     </div>
+    <app-ai-settings-modal />
   `,
   styles: [`
     :host {
@@ -765,6 +778,7 @@ import { toolIconPath } from '../../core/constants/tool-icons';
 })
 export default class ShellComponent implements OnInit {
   theme = inject(ThemeService);
+  llm = inject(LlmSettingsService);
   private router = inject(Router);
   private tasksSvc = inject(TasksService);
   private historySvc = inject(HistoryService);
@@ -780,6 +794,10 @@ export default class ShellComponent implements OnInit {
   historyEntries = this.historySvc.entries;
 
   recentItems = computed(() => this.historyEntries().slice(0, 4));
+
+  orgDisplayName = computed(
+    () => this.llm.orgDisplayName() || 'WorkDesk AI',
+  );
 
   @HostListener('document:keydown.escape')
   onEscapeKey(): void {

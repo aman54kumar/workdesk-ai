@@ -8,17 +8,29 @@ from fastapi.responses import StreamingResponse
 
 from app.config import settings
 from app.prompts.resolver import resolve_prompt
-from app.prompts.templates import TASK_MODEL_MAP
+from app.prompts.templates import get_task_config
 from app.schemas.admin import PublicTaskResponse
 from app.schemas.generate import (
     CancelJobRequest,
     CompanyProfileStatusResponse,
+    CloudModelPreset,
     GenerateRequest,
+    LlmOptionsResponse,
+    LlmOptionsLocal,
+    LlmOptionsCloud,
 )
 from app.services.company_profile import build_company_context, company_profile_status
 from app.services.cache import get_cached, make_cache_key, set_cache
 from app.services import task_settings as task_settings_service
-from app.services.job_queue import cancel_job_by_id, enqueue_job, iter_job_frames
+from app.services.job_queue import (
+    cancel_job_by_id,
+    enqueue_job,
+    iter_job_frames,
+    stream_cloud_frames,
+)
+from app.services.llm_resolution import resolve_generation_llm
+from app.services.org_llm_settings import get_org_llm_settings
+from app.services.cloud_model_presets import get_cloud_model_presets
 from app.services.usage import record_usage
 
 router = APIRouter(prefix="/generate", tags=["generate"])
@@ -59,6 +71,33 @@ async def get_company_profile_status():
     return CompanyProfileStatusResponse(**await company_profile_status())
 
 
+@router.get("/llm-options", response_model=LlmOptionsResponse)
+async def get_llm_options():
+    org = await get_org_llm_settings()
+    presets_raw = await get_cloud_model_presets()
+    presets: dict[str, list[CloudModelPreset]] = {}
+    for provider in org.allowed_cloud_providers:
+        if provider == "custom":
+            continue
+        items = presets_raw.get(provider, [])
+        presets[provider] = [
+            CloudModelPreset(id=item["id"], label=item["label"]) for item in items
+        ]
+    return LlmOptionsResponse(
+        local=LlmOptionsLocal(
+            enabled=True,
+            models=org.allowed_models,
+            backend=org.local_backend,
+        ),
+        cloud=LlmOptionsCloud(
+            enabled=org.allow_user_cloud,
+            providers=org.allowed_cloud_providers,
+            presets=presets,
+        ),
+        org_display_name=org.org_display_name,
+    )
+
+
 @router.post("/stream")
 async def generate_stream(request: GenerateRequest):
     if not await task_settings_service.is_task_active(request.task_type):
@@ -77,8 +116,11 @@ async def generate_stream(request: GenerateRequest):
             ),
         )
 
-    config = TASK_MODEL_MAP[request.task_type]
-    model = await task_settings_service.resolve_model(request.task_type)
+    llm_payload = request.llm.model_dump(exclude_none=True) if request.llm else None
+    resolved = await resolve_generation_llm(request.task_type, llm_payload)
+    config = await get_task_config(request.task_type)
+    model = resolved.model
+
     template = await resolve_prompt(request.task_type)
     system_prompt = template["system"]
     variables = dict(request.variables)
@@ -93,8 +135,9 @@ async def generate_stream(request: GenerateRequest):
             )
     user_prompt = template["user_template"].format(**variables)
 
+    is_cloud = resolved.source == "cloud"
     bypass_cache = (
-        request.task_type in NO_CACHE_TASK_TYPES or request.skip_cache
+        request.task_type in NO_CACHE_TASK_TYPES or request.skip_cache or is_cloud
     )
     cache_key = make_cache_key(model, system_prompt, user_prompt)
     cached = None if bypass_cache else await get_cached(cache_key)
@@ -125,29 +168,56 @@ async def generate_stream(request: GenerateRequest):
             if bypass_cache:
                 options["seed"] = random.randint(1, 2**31 - 1)
 
-            job = await enqueue_job(model, messages, options)
+            if is_cloud:
+                async for frame in stream_cloud_frames(
+                    backend=resolved.backend,
+                    base_url=resolved.base_url,
+                    model=model,
+                    messages=messages,
+                    options=options,
+                    api_key=resolved.api_key or "",
+                ):
+                    yield _frame_line(frame)
+                    ftype = frame.get("type")
+                    if ftype == "error":
+                        msg = frame.get("msg", "error")
+                        if msg == "timeout":
+                            final_status = "timeout"
+                        else:
+                            final_status = "error"
+                    elif ftype == "done":
+                        pass
+            else:
+                job = await enqueue_job(
+                    model,
+                    messages,
+                    options,
+                    backend=resolved.backend,
+                    base_url=resolved.base_url,
+                    api_key=resolved.api_key,
+                )
 
-            async for frame in iter_job_frames(job):
-                yield _frame_line(frame)
-                ftype = frame.get("type")
-                if ftype == "error":
-                    msg = frame.get("msg", "error")
-                    if msg == "timeout":
-                        final_status = "timeout"
-                    elif msg == "cancelled":
-                        final_status = "cancelled"
-                    else:
-                        final_status = "error"
-                elif ftype == "done" and not frame.get("cached"):
-                    assembled = getattr(job, "_assembled", "")
-                    if assembled and not bypass_cache:
-                        await set_cache(
-                            cache_key,
-                            model,
-                            request.task_type,
-                            assembled,
-                            ttl_hours=settings.CACHE_TTL_HOURS,
-                        )
+                async for frame in iter_job_frames(job):
+                    yield _frame_line(frame)
+                    ftype = frame.get("type")
+                    if ftype == "error":
+                        msg = frame.get("msg", "error")
+                        if msg == "timeout":
+                            final_status = "timeout"
+                        elif msg == "cancelled":
+                            final_status = "cancelled"
+                        else:
+                            final_status = "error"
+                    elif ftype == "done" and not frame.get("cached"):
+                        assembled = getattr(job, "_assembled", "")
+                        if assembled and not bypass_cache:
+                            await set_cache(
+                                cache_key,
+                                model,
+                                request.task_type,
+                                assembled,
+                                ttl_hours=settings.CACHE_TTL_HOURS,
+                            )
         finally:
             latency_ms = 0 if was_cached else int((time.monotonic() - started) * 1000)
             await record_usage(
@@ -157,6 +227,8 @@ async def generate_stream(request: GenerateRequest):
                 latency_ms=latency_ms,
                 input_chars=char_count,
                 status=final_status,
+                llm_source=resolved.source,
+                llm_provider=resolved.provider,
             )
 
     return StreamingResponse(stream_body(), media_type="application/x-ndjson")
@@ -164,6 +236,5 @@ async def generate_stream(request: GenerateRequest):
 
 @router.post("/cancel")
 async def cancel_generation(request: CancelJobRequest):
-    # Idempotent: job may already have finished and been removed from the registry.
     await cancel_job_by_id(request.job_id)
     return {"ok": True}

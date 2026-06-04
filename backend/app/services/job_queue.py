@@ -1,4 +1,4 @@
-"""Single-consumer Ollama job queue with position / ETA frames."""
+"""Single-consumer local LLM job queue with position / ETA frames."""
 
 from __future__ import annotations
 
@@ -10,7 +10,8 @@ from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
 from app.config import settings
-from app.services.ollama import stream_ollama
+from app.services.llm.errors import provider_error_message
+from app.services.llm.router import stream_chat
 
 _DEFAULT_ETA_S = 45.0
 
@@ -28,6 +29,9 @@ class Job:
     model: str
     messages: list[dict[str, str]]
     options: dict[str, Any]
+    backend: str = "ollama"
+    base_url: str = ""
+    api_key: str | None = None
     output_queue: asyncio.Queue[dict[str, Any]] = field(default_factory=asyncio.Queue)
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     cancel_notified: bool = False
@@ -79,12 +83,19 @@ async def enqueue_job(
     model: str,
     messages: list[dict[str, str]],
     options: dict[str, Any] | None = None,
+    *,
+    backend: str = "ollama",
+    base_url: str = "",
+    api_key: str | None = None,
 ) -> Job:
     job = Job(
         id=str(uuid.uuid4()),
         model=model,
         messages=messages,
         options=options or {},
+        backend=backend,
+        base_url=base_url,
+        api_key=api_key,
     )
     job.position = _enqueue_position()
     _waiting.append(job)
@@ -124,8 +135,14 @@ async def _run_job(job: Job) -> None:
 
     try:
         async with asyncio.timeout(settings.GENERATION_TIMEOUT_S):
-            async for chunk in stream_ollama(
-                job.model, job.messages, job.options, cancel_event=job.cancel_event
+            async for chunk in stream_chat(
+                backend=job.backend,
+                base_url=job.base_url,
+                model=job.model,
+                messages=job.messages,
+                options=job.options,
+                api_key=job.api_key,
+                cancel_event=job.cancel_event,
             ):
                 if job.cancel_event.is_set():
                     status = "cancelled"
@@ -140,6 +157,15 @@ async def _run_job(job: Job) -> None:
                         {"type": "error", "msg": "generation incomplete"}
                     )
                     return
+                if isinstance(chunk, dict) and chunk.get("__meta__") == "provider_error":
+                    status = "error"
+                    await job.output_queue.put(
+                        {
+                            "type": "error",
+                            "msg": chunk.get("message") or "generation failed",
+                        }
+                    )
+                    return
                 if isinstance(chunk, str) and chunk:
                     full_parts.append(chunk)
                     await job.output_queue.put({"type": "token", "t": chunk})
@@ -147,9 +173,11 @@ async def _run_job(job: Job) -> None:
         status = "timeout"
         await job.output_queue.put({"type": "error", "msg": "timeout"})
         return
-    except Exception:
+    except Exception as exc:
         status = "error"
-        await job.output_queue.put({"type": "error", "msg": "generation failed"})
+        await job.output_queue.put(
+            {"type": "error", "msg": provider_error_message(exc)}
+        )
         return
     finally:
         elapsed = time.monotonic() - start
@@ -213,3 +241,59 @@ async def iter_job_frames(job: Job) -> AsyncIterator[dict[str, Any]]:
         yield frame
         if frame.get("type") in ("done", "error"):
             break
+
+
+async def stream_cloud_frames(
+    *,
+    backend: str,
+    base_url: str,
+    model: str,
+    messages: list[dict[str, str]],
+    options: dict[str, Any],
+    api_key: str,
+    cancel_event: asyncio.Event | None = None,
+) -> AsyncIterator[dict[str, Any]]:
+    """Stream generation frames for cloud BYOK (no queue)."""
+    yield {"type": "start"}
+    full_parts: list[str] = []
+    try:
+        async with asyncio.timeout(settings.GENERATION_TIMEOUT_S):
+            async for chunk in stream_chat(
+                backend=backend,
+                base_url=base_url,
+                model=model,
+                messages=messages,
+                options=options,
+                api_key=api_key,
+                cancel_event=cancel_event,
+            ):
+                if cancel_event and cancel_event.is_set():
+                    yield {"type": "error", "msg": "cancelled"}
+                    return
+                if isinstance(chunk, dict) and chunk.get("__meta__") == "truncated":
+                    yield {"type": "truncated"}
+                    continue
+                if isinstance(chunk, dict) and chunk.get("__meta__") == "incomplete":
+                    yield {"type": "error", "msg": "generation incomplete"}
+                    return
+                if isinstance(chunk, dict) and chunk.get("__meta__") == "provider_error":
+                    yield {
+                        "type": "error",
+                        "msg": chunk.get("message") or "generation failed",
+                    }
+                    return
+                if isinstance(chunk, str) and chunk:
+                    full_parts.append(chunk)
+                    yield {"type": "token", "t": chunk}
+    except TimeoutError:
+        yield {"type": "error", "msg": "timeout"}
+        return
+    except Exception as exc:
+        yield {"type": "error", "msg": provider_error_message(exc)}
+        return
+
+    if cancel_event and cancel_event.is_set():
+        yield {"type": "error", "msg": "cancelled"}
+        return
+
+    yield {"type": "done", "cached": False, "model": model}

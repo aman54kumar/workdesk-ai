@@ -1,12 +1,23 @@
+from typing import Literal
+
 from pydantic import BaseModel, field_validator
 
 from app.prompts.templates import VALID_TASK_TYPES
+
+
+class LlmSelection(BaseModel):
+    source: Literal["local", "cloud"]
+    model: str | None = None
+    provider: Literal["openai", "anthropic", "google", "custom"] | None = None
+    api_key: str | None = None
+    base_url: str | None = None
 
 
 class GenerateRequest(BaseModel):
     task_type: str
     variables: dict[str, str]
     skip_cache: bool = False
+    llm: LlmSelection | None = None
 
     @field_validator("task_type")
     @classmethod
@@ -21,6 +32,29 @@ class GenerateRequest(BaseModel):
 
 class CancelJobRequest(BaseModel):
     job_id: str
+
+
+class LlmOptionsLocal(BaseModel):
+    enabled: bool
+    models: list[str]
+    backend: str
+
+
+class CloudModelPreset(BaseModel):
+    id: str
+    label: str
+
+
+class LlmOptionsCloud(BaseModel):
+    enabled: bool
+    providers: list[str]
+    presets: dict[str, list[CloudModelPreset]] = {}
+
+
+class LlmOptionsResponse(BaseModel):
+    local: LlmOptionsLocal
+    cloud: LlmOptionsCloud
+    org_display_name: str
 
 
 class CompanyProfileSectionPublic(BaseModel):

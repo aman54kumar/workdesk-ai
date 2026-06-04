@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     GENERATION_TIMEOUT_S: int = 180
     ETA_WINDOW: int = 20
 
+    ALLOW_USER_CLOUD: bool = False
+    ORG_DISPLAY_NAME: str = ""
+
+    CLOUD_PRESET_REFRESH_DAYS: int = 30
+    CLOUD_MODEL_REFRESH_OPENAI_KEY: str = ""
+    CLOUD_MODEL_REFRESH_ANTHROPIC_KEY: str = ""
+    CLOUD_MODEL_REFRESH_GOOGLE_KEY: str = ""
+
     class Config:
         env_file = ".env"
 

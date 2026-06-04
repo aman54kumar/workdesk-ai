@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { LlmSettingsService } from './llm-settings.service';
 
 export const MAX_INPUT_CHARS = 20000;
 
@@ -33,6 +34,7 @@ export interface CompanyProfileStatus {
 
 @Injectable({ providedIn: 'root' })
 export class GenerateService {
+  private llmSettings = inject(LlmSettingsService);
   private limitsLoaded = false;
   maxInputChars = MAX_INPUT_CHARS;
 
@@ -68,6 +70,22 @@ export class GenerateService {
     variables: Record<string, string>,
     skipCache = false,
   ): StreamHandle {
+    if (this.llmSettings.isCloud()) {
+      const preview = this.llmSettings.buildGeneratePayload();
+      if (!preview) {
+        return {
+          observable: new Observable((observer) => {
+            observer.error({
+              message:
+                'Cloud mode is selected but model or API key is missing. Open AI model settings.',
+            });
+            observer.complete();
+          }),
+          cancel: () => undefined,
+        };
+      }
+    }
+
     const controller = new AbortController();
     let jobId: string | null = null;
     let finished = false;
@@ -108,29 +126,45 @@ export class GenerateService {
         observer.complete();
       };
 
+      const llm = this.llmSettings.buildGeneratePayload();
+      const requestBody: Record<string, unknown> = {
+        task_type: taskType,
+        variables,
+        skip_cache: skipCache,
+      };
+      if (llm) {
+        requestBody['llm'] = llm;
+      }
+
       fetch(`${environment.apiUrl}/generate/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          task_type: taskType,
-          variables,
-          skip_cache: skipCache,
-        }),
+        body: JSON.stringify(requestBody),
         signal: controller.signal,
       })
         .then(async (response) => {
           if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            const rawDetail = (body as { detail?: string | { msg: string }[] }).detail;
+            const detail =
+              typeof rawDetail === 'string'
+                ? rawDetail
+                : Array.isArray(rawDetail)
+                  ? rawDetail.map((d) => d.msg ?? JSON.stringify(d)).join('; ')
+                  : undefined;
             if (response.status === 413) {
-              const body = await response.json().catch(() => ({}));
               finish();
               observer.error({
                 status: 413,
-                message: (body as { detail?: string }).detail ?? 'Input too long',
+                message: detail ?? 'Input too long',
               });
               return;
             }
             finish();
-            observer.error({ status: response.status });
+            observer.error({
+              status: response.status,
+              message: detail ?? 'Generation failed. Please try again.',
+            });
             return;
           }
 
@@ -262,14 +296,12 @@ export function applyStreamFrame(
     );
   }
   if (r.error) {
-    const msg =
-      r.error === 'timeout'
-        ? 'Generation timed out. Please try again with shorter input.'
-        : r.error === 'cancelled'
-          ? 'Request cancelled.'
-          : r.error === 'generation incomplete'
-            ? 'The connection to the AI model ended early. Try again.'
-            : 'Generation failed. Please try again.';
-    ctx.setError(msg);
+    const known: Record<string, string> = {
+      timeout: 'Generation timed out. Please try again with shorter input.',
+      cancelled: 'Request cancelled.',
+      'generation incomplete': 'The connection to the AI model ended early. Try again.',
+      'generation failed': 'Generation failed. Please try again.',
+    };
+    ctx.setError(known[r.error] ?? r.error);
   }
 }

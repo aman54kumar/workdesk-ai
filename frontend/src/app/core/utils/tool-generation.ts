@@ -86,6 +86,8 @@ export function startToolGeneration(
       if (stoppedByUser) return;
       if (err?.status === 413) {
         state.errorMessage.set(err.message ?? 'Input too long.');
+      } else if (err?.message) {
+        state.errorMessage.set(err.message);
       } else {
         state.errorMessage.set('Generation failed. Please try again.');
       }

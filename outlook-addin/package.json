@@ -1,0 +1,19 @@
+{
+  "name": "workdesk-outlook-addin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WorkDesk AI Outlook add-in — Email Composer POC",
+  "scripts": {
+    "certs": "office-addin-dev-certs install",
+    "dev": "vite --port 3000",
+    "build": "tsc && vite build",
+    "preview": "vite preview --port 3000"
+  },
+  "devDependencies": {
+    "@types/office-js": "^1.0.421",
+    "office-addin-dev-certs": "^1.13.5",
+    "sharp": "^0.34.5",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0"
+  }
+}

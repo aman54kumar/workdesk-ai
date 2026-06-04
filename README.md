@@ -1,13 +1,13 @@
 # WorkDesk AI
 
-**WorkDesk AI** is a private, intranet-hosted productivity assistant for **Adit Microsys Pvt. Ltd.**, powered by on-premise **Ollama** LLMs. Employees open it in a browser—no install—and use guided **task tools** (not a blank chat) for emails, documents, project work, code, and presales.
+**WorkDesk AI** is a private, intranet-hosted productivity assistant for **Adit Microsys Pvt. Ltd.**, powered by an organization-configured **local LLM** (typically on-prem **Ollama**) with optional **cloud BYOK**. Employees open it in a browser—no install—and use guided **task tools** (not a blank chat) for emails, documents, project work, code, and presales.
 
 | | |
 | --- | --- |
 | **Version** | 1.0 |
 | **Access** | Company intranet (office LAN or VPN). Restrict network access before wider rollout. |
 | **End users** | No login—open the app URL and pick a tool. Recent results and favorites are saved per browser. |
-| **Operators** | [Admin console](#admin-console) to enable/disable tools, assign models, edit prompts, maintain a company profile, view usage analytics, and (optionally) manage Q&A documents. |
+| **Operators** | [Admin console](#admin-console) to configure LLM settings, enable/disable tools, assign models, edit prompts, maintain a company profile, and view usage analytics. |
 
 ---
 
@@ -29,18 +29,20 @@
 - [Architecture notes](#architecture-notes)
 - [Troubleshooting](#troubleshooting)
 - [Sharing with colleagues](#sharing-with-colleagues)
+- [Outlook add-in (Email Composer POC)](#outlook-add-in-email-composer-poc)
 
 ---
 
 ## Overview
 
-WorkDesk AI gives every department—developers, project managers, BD/presales, admin/HR/accounts—the same on-prem AI assistant without sending data to the public cloud.
+WorkDesk AI gives every department—developers, project managers, BD/presales, admin/HR/accounts—the same AI assistant with local-first privacy and optional user-controlled cloud keys.
 
 **Design goals**
 
 - **Task-based UI** — Each tool has a form, labels, and a tuned prompt so staff do not need to “prompt engineer.”
-- **On-prem privacy** — All generation goes through your FastAPI server to your Ollama host; the browser never talks to Ollama directly.
-- **CPU-friendly** — A single-consumer request queue (one Ollama call at a time) and a SQLite response cache keep a shared CPU Ollama instance usable under office load. Waiting users see their **queue position** and an estimated wait instead of a frozen screen.
+- **On-prem by default** — Local generation goes through your FastAPI server to your organization LLM (Ollama or OpenAI-compatible on the LAN). The browser never talks to Ollama or cloud APIs directly.
+- **Optional cloud BYOK** — When enabled by an admin, users may send prompts to external providers (OpenAI, Anthropic, Google, or a custom OpenAI-compatible endpoint) using API keys stored in their browser.
+- **CPU-friendly** — A single-consumer request queue (one **local** LLM call at a time) and a SQLite response cache keep a shared CPU Ollama instance usable under office load. Cloud requests bypass the queue. Waiting users see their **queue position** and an estimated wait instead of a frozen screen.
 - **Department coverage** — Tools are grouped in the sidebar by audience (Everyone, Delivery/PM, Developers, BD/Presales).
 - **Lightweight personalization** — Recent results and favorite tools are remembered in the browser; no accounts required.
 
@@ -71,7 +73,8 @@ Disabled tools are hidden from the sidebar; admins control visibility from the [
 ## User experience
 
 - **Streaming output** — Results appear token-by-token as the model generates.
-- **Queue position** — When the server is busy, the tool shows your position in line (e.g. *“You’re #3 · ~40s”*) with a **Cancel** button, then switches to live output when your turn arrives.
+- **Queue position** — For **local** generation, when the server is busy, the tool shows your position in line (e.g. *“You’re #3 · ~40s”*) with a **Cancel** button, then switches to live output when your turn arrives. **Cloud (BYOK)** requests skip the queue.
+- **AI model settings** — Open **AI model settings** in the sidebar to choose **Local (organization)** or **Cloud (my API key)**. Each tool shows a badge with the active model source (e.g. *Local · gemma4:latest* or *Anthropic · Claude Sonnet 4.6*).
 - **Copy & regenerate** — Copy output to the clipboard; regenerate bypasses cache when needed.
 - **Cache indicator** — Repeat identical requests may show a **Cached** badge and return instantly, even while another generation is running (see [How it works](#how-it-works)).
 - **Recent results** — Your last results are saved in this browser and can be reopened from the **Recent** panel. A **Clear history** option removes them.
@@ -94,8 +97,9 @@ Operators manage the deployment at **`/admin/login`** (not linked from the main 
 | Capability | Description |
 | ---------- | ----------- |
 | **Sign in** | JWT-based admin login (`ADMIN_USERNAME` / `ADMIN_PASSWORD` in `.env`). |
+| **LLM settings** | Configure organization local LLM (Ollama or OpenAI-compatible), tier models, allowed model list, cloud BYOK policy, cloud model list refresh keys, and sidebar display name. See [LLM configuration](#llm-configuration). |
 | **Enable / disable tools** | Turn individual tools on or off for all users. |
-| **Per-tool model** | Override which Ollama model a tool uses, chosen from `OLLAMA_ALLOWED_MODEL_OVERRIDES`. |
+| **Per-tool model** | Override which local model a tool uses, chosen from the org allowed model list. |
 | **Company profile** | Maintain reusable company credentials (certifications, clients, deployments, etc.) injected into relevant tools. See [Company profile](#company-profile). |
 | **Prompt templates** | View and edit the tuned prompt for any tool, with reset-to-default. See [Editable prompts](#editable-prompts). |
 | **Usage analytics** | Anonymous, aggregate view of tool usage, cache-hit rate, average latency, errors, and feedback. See [Analytics](#analytics). |
@@ -114,44 +118,69 @@ Each tool’s prompt can be edited from the console. **Code holds the defaults; 
 
 ### Analytics
 
-Every generation records an anonymous usage event (tool, model, cached?, latency, status). The analytics page shows usage counts per tool, cache-hit rate, average latency, error/timeout/cancel counts, and a 👍 / 👎 summary with recent comments. No user inputs or outputs are stored.
+Every generation records an anonymous usage event (tool, model, LLM source local/cloud, cached?, latency, status). The analytics page shows usage counts per tool, cache-hit rate, average latency, error/timeout/cancel counts, and a 👍 / 👎 summary with recent comments. No user inputs or outputs are stored.
+
+### LLM configuration
+
+WorkDesk supports **two tiers** of model configuration:
+
+1. **Organization local LLM (admin)** — Operators configure the shared on-prem or LAN-hosted stack at **`/admin/llm-settings`**:
+   - Backend type (**Ollama** or **OpenAI-compatible**), base URL, optional local API key
+   - Tier models (default / code / quality) and the **allowed model list** (users and per-tool overrides must pick from this list)
+   - **Cloud policy** — whether users may use cloud BYOK, and which provider groups are allowed
+   - **Cloud model lists** — optional admin refresh API keys to pull live model IDs from OpenAI, Anthropic, and Google; lists auto-refresh about every 30 days (configurable). Without refresh keys, built-in curated presets are used.
+   - **White-label** — organization display name in the sidebar footer
+   - **Test connection** and **Refresh models** buttons for the local stack
+
+2. **End-user preference (browser)** — Each user opens **AI model settings** in the sidebar:
+   - **Local (organization)** — pick a model from the org allowlist, or leave blank to use the admin per-tool default
+   - **Cloud (my API key)** — pick provider, model (curated dropdown with an **Other** option for manual model IDs), and API key. Custom provider also requires a base URL. Preferences are stored in `localStorage` on that device only.
+
+On first startup, org LLM settings are **seeded from `.env`** (`OLLAMA_*`, `ALLOW_USER_CLOUD`, `ORG_DISPLAY_NAME`). After that, the admin console is the source of truth—no redeploy needed to point at another org’s Ollama host.
+
+**Cloud BYOK privacy:** When a user selects cloud, their prompt text is sent from the WorkDesk backend to the chosen external provider using the user’s API key (the browser never calls the provider directly). Admins can disable cloud usage entirely or restrict which provider groups are allowed.
+
+**Supported cloud providers** (in dropdown order): OpenAI, Anthropic (Claude), Google (Gemini), and Custom (any OpenAI-compatible API with user-supplied base URL). Custom always appears last in the list.
+
+**Cloud model presets:** `GET /generate/llm-options` returns curated model dropdowns per provider. Admins can force a refresh via **Refresh cloud model lists now** in LLM settings, or set optional refresh keys in the admin UI or `.env` (`CLOUD_MODEL_REFRESH_*_KEY`). See [Environment variables](#environment-variables).
 
 ---
 
 ## How it works
 
 ```text
-Browser  →  Angular UI  →  FastAPI :8000  →  single-consumer queue  →  Ollama :11434
+Browser  →  Angular UI  →  FastAPI :8000  →  local: single-consumer queue  →  org LLM (Ollama / OpenAI-compatible)
+                              │              cloud: direct provider adapter (no queue)
                               ↓
-                        SQLite (cache · settings · profile · prompts · usage · feedback)
+                        SQLite (cache · settings · profile · prompts · usage · feedback · org LLM)
 ```
 
 | Mechanism | Behavior |
 | --------- | -------- |
-| **Model routing** | Most tools use `OLLAMA_MODEL_DEFAULT`; developer tools use `OLLAMA_MODEL_CODE`; Eligibility Check uses `OLLAMA_MODEL_QUALITY`. Admins can override per tool. |
-| **Request queue** | An explicit **single-consumer job queue** runs **one** Ollama request at a time. Each waiting request is told its **position** and an **ETA** (rolling average of recent generation times). Do not run multiple Uvicorn workers. |
+| **Model routing (local)** | Tier defaults (`default` / `code` / `quality`) come from org LLM settings in the database (seeded from `.env` on first boot). Admins can override per tool. Users may override with an allowed local model in AI settings. |
+| **Model routing (cloud)** | User picks provider + model in AI settings. Resolved in `llm_resolution.py`; streamed via provider adapters in `app/services/llm/`. |
+| **Request queue** | An explicit **single-consumer job queue** runs **one local LLM request** at a time. Each waiting request is told its **position** and an **ETA** (rolling average of recent generation times). **Cloud BYOK requests bypass the queue.** Do not run multiple Uvicorn workers. |
 | **Cache before queue** | The SQLite cache is checked **before** a request joins the queue, so a cache hit returns immediately and never waits behind a live generation. |
-| **Response cache** | Identical prompts are served from SQLite for **24 hours** by default (`CACHE_TTL_HOURS`). Creative/high-churn tasks (e.g. email, MoM, code tools) skip cache; **Tone Fixer**, **Translate**, and **Eligibility Check** may use cache when inputs match. |
-| **Cancellation** | Cancelling or closing a queued request frees its slot immediately so abandoned requests do not block the line. |
-| **Guards** | Inputs over `MAX_INPUT_CHARS` are rejected; each generation has a hard timeout (`GENERATION_TIMEOUT_S`). |
-| **Streaming** | `POST /generate/stream` returns a readable stream of newline-delimited JSON frames (`fetch` + `ReadableStream`). |
-| **Health** | `GET /health` reports API status and Ollama reachability. |
+| **Response cache** | Identical prompts are served from SQLite for **24 hours** by default (`CACHE_TTL_HOURS`). Creative/high-churn tasks (e.g. email, MoM, code tools) skip cache; **Tone Fixer**, **Translate**, and **Eligibility Check** may use cache when inputs match. **Cloud requests always skip cache.** |
+| **Cancellation** | Cancelling or closing a queued **local** request frees its slot immediately so abandoned requests do not block the line. |
+| **Guards** | Inputs over `MAX_INPUT_CHARS` are rejected; each generation has a hard timeout (`GENERATION_TIMEOUT_S`). Provider errors are surfaced to the UI with the provider message when available. |
+| **Streaming** | `POST /generate/stream` returns a readable stream of newline-delimited JSON frames (`fetch` + `ReadableStream`). Optional `llm` payload selects local vs cloud. |
+| **Public LLM options** | `GET /generate/llm-options` returns local models, cloud policy, provider list, and cloud model presets for the AI settings UI. |
+| **Health** | `GET /health` reports API status and Ollama reachability (for the configured org local backend). |
 
 ### Stream frames
 
 ```jsonc
-{"type":"queued","position":3,"eta_s":48}   // repeated as the line advances
-{"type":"start"}                              // acquired the worker (or cache hit)
-{"type":"token","t":"..."}                    // repeated
-{"type":"done","cached":false}                // success
-{"type":"error","msg":"timeout"}              // failure
+{"type":"queued","position":3,"eta_s":48,"job_id":"..."}   // local only; repeated as the line advances
+{"type":"start"}                                              // acquired the worker (or cache hit)
+{"type":"token","t":"..."}                                    // repeated
+{"type":"done","cached":false,"model":"..."}                 // success
+{"type":"error","msg":"..."}                                  // failure (may include provider detail)
 ```
 
-### Company Q&A (optional)
+### Company Q&A *(planned)*
 
-When enabled, an admin maintains a folder of company documents (policies, rules, holiday lists, process notes). A server-side **ingest** step extracts text, splits it into chunks, and indexes them in SQLite using **BM25 keyword search** (pure Python—no GPU, no embedding model required). At question time the top-matching chunks are passed to the model with an instruction to answer **only** from that context and to cite the source documents; if nothing matches, it replies that the information isn’t available. Answers run through the same single-consumer queue, so they add no concurrent load. Document ingest is admin-side only—end users still never upload files.
-
----
+A future **Company Q&A** tool will let admins maintain company documents and answer questions with BM25 retrieval over indexed chunks. It is **not implemented** in the current build—there is no admin Documents page, ingest pipeline, or Q&A tool yet.
 
 ## What v1.0 is not
 
@@ -159,7 +188,8 @@ When enabled, an admin maintains a folder of company documents (policies, rules,
 - **Not** per-user file upload—end users type or paste only.
 - **Not** cross-device history—recent results and favorites live only in the local browser.
 - **Not** per-employee user accounts or role-based tool access (only global tool on/off via admin).
-- **Not** dependent on external AI APIs—all inference stays on your Ollama host.
+- **Not** mandatory cloud APIs—default inference uses the organization local LLM; optional cloud BYOK is user-controlled when enabled by admin.
+- **Not** Company Q&A or document upload—planned for a future release.
 
 ---
 
@@ -169,9 +199,8 @@ When enabled, an admin maintains a folder of company documents (policies, rules,
 | -------- | ----------------------------------------------- |
 | Backend  | Python 3.11, FastAPI, SQLAlchemy 2 async, aiosqlite |
 | Frontend | Angular 19 (standalone), Tailwind CSS 3         |
-| Storage  | SQLite (cache, settings, company profile, prompt overrides, usage, feedback, Q&A index) |
-| Retrieval | BM25 (pure Python) for optional Company Q&A     |
-| LLM      | Ollama (LAN or local, CPU-oriented)             |
+| Storage  | SQLite (cache, settings, company profile, prompt overrides, usage, feedback, org LLM settings) |
+| LLM      | Organization local: Ollama or OpenAI-compatible; optional user cloud BYOK (OpenAI, Anthropic, Google, Custom) via `app/services/llm/` |
 | OS       | Windows (scripts and NSSM examples below)       |
 
 ---
@@ -212,27 +241,31 @@ Copy the example env file and edit values:
 copy .env.example .env
 ```
 
-Example `.env`:
+Example `.env` (see `backend\.env.example` for the full template):
 
 ```env
 SQLITE_DB_PATH=./workdesk_cache.db
 OLLAMA_BASE_URL=http://localhost:11434
-CORS_ORIGINS=http://localhost:4200
+CORS_ORIGINS=http://localhost:4200,https://localhost:3000
 CACHE_TTL_HOURS=24
 OLLAMA_MODEL_DEFAULT=gemma4:latest
 OLLAMA_MODEL_CODE=codellama:7b
 OLLAMA_MODEL_QUALITY=gemma4:latest
 OLLAMA_ALLOWED_MODEL_OVERRIDES=gemma3:4b,gemma4:latest,codellama:7b,llava:7b
+ALLOW_USER_CLOUD=false
+ORG_DISPLAY_NAME=Adit Microsys Pvt. Ltd.
+CLOUD_PRESET_REFRESH_DAYS=30
 MAX_INPUT_CHARS=20000
 GENERATION_TIMEOUT_S=180
 ETA_WINDOW=20
-COMPANY_DOCS_DIR=./company_docs
-RAG_TOP_K=5
-RAG_CHUNK_TOKENS=700
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=changeme
 JWT_SECRET=change-this-secret-in-production
 JWT_EXPIRE_MINUTES=480
+# Optional: cloud model list refresh (admin UI can store keys instead)
+# CLOUD_MODEL_REFRESH_OPENAI_KEY=
+# CLOUD_MODEL_REFRESH_ANTHROPIC_KEY=
+# CLOUD_MODEL_REFRESH_GOOGLE_KEY=
 ```
 
 Start the API (always **one worker**):
@@ -241,7 +274,7 @@ Start the API (always **one worker**):
 uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-The SQLite database is created on first startup. No migrations are required.
+The SQLite database and org LLM settings are created on first startup. Lightweight schema patches for existing databases run automatically in `main.py`; no manual migration step is required for local dev.
 
 Health check:
 
@@ -286,7 +319,6 @@ C:\workdesk-ai\
   backend\
     venv\
     .env
-    company_docs\            ← optional: documents for Company Q&A
     scripts\start_prod.bat
   frontend\
     dist\frontend\browser\   ← production build output
@@ -308,9 +340,9 @@ Edit `backend\.env` for production:
 | Variable | Production example |
 | -------- | ------------------ |
 | `OLLAMA_BASE_URL` | `http://<OLLAMA_HOST_IP>:11434` (Ollama host) |
-| `CORS_ORIGINS` | `http://<WORKDESK_SERVER_IP>,http://<WORKDESK_SERVER_IP>:80` (UI origin; add `:80` if needed) |
+| `CORS_ORIGINS` | UI origin(s); add `https://<host>/outlook-addin/` (or dev `https://localhost:3000`) for the Outlook add-in |
 | Model variables | Match models installed on the Ollama server |
-| `COMPANY_DOCS_DIR` | Path to the Q&A documents folder (if using Company Q&A) |
+| `ALLOW_USER_CLOUD` / `ORG_DISPLAY_NAME` | Bootstrap org LLM policy and sidebar name (admin UI overrides after first boot) |
 | `ADMIN_USERNAME` / `ADMIN_PASSWORD` | Strong credentials (not defaults) |
 | `JWT_SECRET` | Long random secret |
 
@@ -400,9 +432,9 @@ npx ng build --configuration production
 nssm restart WorkDeskFrontend
 ```
 
-**Ollama URL** — edit `OLLAMA_BASE_URL` in `backend\.env`, then restart the backend service.
+**Ollama URL / models** — prefer **`/admin/llm-settings`** to change the local base URL, allowed models, and cloud policy. `.env` `OLLAMA_*` values seed the database on first boot only; restart the backend after editing `.env` on a fresh install.
 
-**Company Q&A documents** — update files in `COMPANY_DOCS_DIR`, then use **Reindex** in the admin **Documents** page (no restart needed).
+**Cloud model lists** — update refresh keys in **LLM settings** and click **Refresh cloud model lists now**, or set `CLOUD_MODEL_REFRESH_*_KEY` in `.env` and restart (auto-refresh runs on startup when lists are stale).
 
 ---
 
@@ -417,13 +449,16 @@ nssm restart WorkDeskFrontend
 | `OLLAMA_MODEL_DEFAULT` | Yes | Default model for most tasks |
 | `OLLAMA_MODEL_CODE` | Yes | Model for code-related tasks |
 | `OLLAMA_MODEL_QUALITY` | Yes | Model for higher-quality tasks (e.g. eligibility) |
-| `OLLAMA_ALLOWED_MODEL_OVERRIDES` | Yes | Comma-separated allowlist for admin per-tool overrides |
+| `OLLAMA_ALLOWED_MODEL_OVERRIDES` | Yes | Comma-separated allowlist seeded into org allowed models on first boot |
+| `ALLOW_USER_CLOUD` | No | Bootstrap default for admin “allow cloud BYOK” (default `false`) |
+| `ORG_DISPLAY_NAME` | No | Bootstrap organization name shown in the sidebar footer |
+| `CLOUD_PRESET_REFRESH_DAYS` | No | Days between automatic cloud model list refreshes (default `30`) |
+| `CLOUD_MODEL_REFRESH_OPENAI_KEY` | No | Optional OpenAI key for fetching live model IDs (admin UI alternative) |
+| `CLOUD_MODEL_REFRESH_ANTHROPIC_KEY` | No | Optional Anthropic key for fetching live model IDs |
+| `CLOUD_MODEL_REFRESH_GOOGLE_KEY` | No | Optional Google key for fetching live model IDs |
 | `MAX_INPUT_CHARS` | No | Reject pastes longer than this (default `20000`) |
 | `GENERATION_TIMEOUT_S` | No | Hard per-request generation timeout (default `180`) |
 | `ETA_WINDOW` | No | Recent samples used for the queue ETA average (default `20`) |
-| `COMPANY_DOCS_DIR` | No | Folder for Company Q&A documents (default `./company_docs`) |
-| `RAG_TOP_K` | No | Chunks passed to the model for Company Q&A (default `5`) |
-| `RAG_CHUNK_TOKENS` | No | Approximate chunk size for Q&A indexing (default `700`) |
 | `ADMIN_USERNAME` | Yes | Admin console login |
 | `ADMIN_PASSWORD` | Yes | Admin console password |
 | `JWT_SECRET` | Yes | Secret for admin JWT tokens |
@@ -439,33 +474,39 @@ See `backend\.env.example` for a full template.
 WorkDesk AI/
 ├── backend/
 │   ├── app/
-│   │   ├── models/         cache.py, task_settings.py, company_profile.py,
-│   │   │                   prompt_override.py, analytics.py, app_feedback.py
+│   │   ├── data/           cloud_model_presets.py (curated cloud model defaults)
+│   │   ├── models/         cache, task_settings, org_llm_settings, company_profile,
+│   │   │                   prompt_override, analytics, app_feedback
 │   │   ├── prompts/        templates.py (default task prompts), resolver.py
 │   │   ├── routers/        generate.py, admin.py, feedback.py
-│   │   ├── auth/           JWT for admin only (jwt.py, dependencies.py)
-│   │   ├── schemas/        generate.py, admin.py, feedback.py
-│   │   └── services/       ollama.py, job_queue.py, queue.py, cache.py,
-│   │                       task_settings.py, company_profile.py,
+│   │   ├── auth/           JWT for admin only
+│   │   ├── schemas/        generate, admin, feedback
+│   │   └── services/       llm/ (ollama, openai_compat, anthropic, google, router),
+│   │                       cloud_model_presets.py, job_queue.py, org_llm_settings.py,
+│   │                       llm_resolution.py, cache.py, company_profile.py,
 │   │                       company_profile_admin.py, prompts_admin.py,
 │   │                       usage.py, app_feedback.py
 │   ├── scripts/            start_prod.bat
-│   ├── alembic/            DB migration scaffolding (auto-applied on startup)
+│   ├── alembic/            migration scaffolding (SQLite patches also run in main.py)
 │   ├── main.py
 │   ├── task_definitions.py
 │   ├── .env.example
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/app/
-│   │   ├── core/           services (generate, tasks, admin, theme, history,
-│   │   │                   feedback), guards, utils, constants
+│   │   ├── core/           services (generate, tasks, admin, llm-settings, theme,
+│   │   │                   history, feedback), guards, utils, constants
 │   │   ├── features/       shell/, tasks/ (12 tool components), admin/
-│   │   │                   (login, dashboard, tools, prompts, profile,
+│   │   │                   (login, llm-settings, tools, prompts, company-profile,
 │   │   │                   analytics, feedback)
-│   │   └── shared/         streaming-output, queue-status, copy-button,
-│   │                       output-feedback, generation-actions, brand-logo
+│   │   └── shared/         ai-settings-modal, llm-source-badge, streaming-output,
+│   │                       queue-status, copy-button, output-feedback, etc.
 │   ├── src/environments/   environment.ts, environment.prod.ts
 │   └── scripts/            start_frontend.bat
+├── outlook-addin/          Outlook task-pane add-in (Email Composer POC)
+│   ├── manifest.xml
+│   ├── taskpane.html, settings.html
+│   └── src/services/       generate client, Office.js mail, history
 ├── .gitignore
 └── README.md
 ```
@@ -474,14 +515,15 @@ WorkDesk AI/
 
 ## Architecture notes
 
-- All LLM traffic goes through FastAPI; the browser never calls Ollama directly.
-- An explicit single-consumer job queue in `app/services/job_queue.py` runs one Ollama request at a time and exposes each request’s position and ETA. It replaces the earlier `asyncio.Semaphore(1)`.
-- The cache is consulted **before** enqueueing, so cache hits bypass the queue entirely.
-- Responses are cached in SQLite except tasks listed in `NO_CACHE_TASK_TYPES` in `generate.py`.
-- Prompts resolve via `prompt_resolver.py`: database override first, else the default in `prompts/templates.py`.
-- Company Q&A (optional) uses BM25 retrieval in `services/rag.py` over chunks stored in SQLite—no embedding model or GPU required.
+- All LLM traffic goes through FastAPI; the browser never calls Ollama or cloud provider APIs directly.
+- **Local** requests use an explicit single-consumer job queue in `app/services/job_queue.py` (one local generation at a time, with position and ETA). **Cloud BYOK** requests call provider adapters directly and skip the queue.
+- The cache is consulted **before** enqueueing local work, so cache hits bypass the queue entirely.
+- Responses are cached in SQLite except tasks listed in `NO_CACHE_TASK_TYPES` in `generate.py` and all cloud requests.
+- Org LLM settings (local backend URL, tiers, allowlist, cloud policy, cloud presets) live in SQLite and are managed at `/admin/llm-settings`.
+- Prompts resolve via `prompts/resolver.py`: database override first, else the default in `prompts/templates.py`.
 - Streaming uses `fetch()` + `ReadableStream` with newline-delimited JSON frames, not `EventSource`.
-- 
+- Existing SQLite databases receive lightweight column migrations on startup via `main.py` (no separate Alembic step required for typical upgrades).
+
 ---
 
 ## Troubleshooting
@@ -489,15 +531,35 @@ WorkDesk AI/
 | Symptom | Check |
 | ------- | ----- |
 | UI loads, generate fails | `http://<server>:8000/health`, firewall on port 8000, `CORS_ORIGINS` matches browser URL |
-| `ollama: unreachable` | `OLLAMA_BASE_URL`, Ollama service running, model names pulled |
-| Tool missing from sidebar | Admin may have disabled it; check `/admin` |
+| `ollama: unreachable` | Org local base URL in **LLM settings**, Ollama service running, model names pulled |
+| Cloud option greyed out | Admin must enable **Allow users to use their own cloud API keys** in **LLM settings** |
+| Cloud generation fails (401/404) | User API key and model ID in **AI model settings**; pick from the provider dropdown or use **Other** with a valid model ID from the provider’s docs |
+| Cloud model list outdated | Admin → **LLM settings** → set refresh keys → **Refresh cloud model lists now** (or wait for the ~30-day auto-refresh) |
+| Tool missing from sidebar | Admin may have disabled it; check `/admin/tools` |
 | 404 on refresh in production | Frontend must be served with SPA mode (`serve -s` or IIS rewrite) |
-| Long wait / high queue position | Expected on CPU Ollama under load; the queue serialises requests. The position/ETA indicator confirms it is working, not stuck. Do not increase Uvicorn workers. |
+| Long wait / high queue position | Expected on CPU Ollama under load for **local** requests; cloud bypasses the queue. Do not increase Uvicorn workers. |
 | Request rejected before running | Input exceeded `MAX_INPUT_CHARS`; shorten the paste. |
 | Recent results / favorites missing | They are per-browser (`localStorage`); cleared browser data or a different device/browser will not have them. |
-| Edited prompt has no effect | Confirm the override was saved in **Prompt Templates**; restart not required. Use **Reset to default** to revert. |
+| Edited prompt has no effect | Confirm the override was saved in **Prompt templates**; restart not required. Use **Reset to default** to revert. |
 | Company Q&A not available | Company Q&A is not yet implemented in this build. |
 | Admin login fails | `ADMIN_USERNAME` / `ADMIN_PASSWORD` in server `.env`; restart backend after changes |
+
+---
+
+## Outlook add-in (Email Composer POC)
+
+An **Outlook compose** task-pane add-in lives in [`outlook-addin/`](outlook-addin/). It reads the draft body, calls the same `POST /generate/stream` endpoint with `task_type: email_composer`, and inserts plain-text output back into the message. Tone and length match the web Email Composer (Formal, Internal & team, Government & official; Standard or Brief).
+
+| Topic | Detail |
+| ----- | ------ |
+| **Scope (POC)** | Email only; other WorkDesk tools may be added later. |
+| **Settings** | WorkDesk API URL, web app URL, local vs cloud LLM, BYOK API key (stored in browser `localStorage`, keys `workdesk_outlook_*`). |
+| **Open app** | Opens the full WorkDesk web UI in the browser (`workdesk_outlook_app_v1`, default `http://localhost:4200`). |
+| **History** | Local undo stack when inserting (restore original draft or re-apply a generated version). |
+| **CORS** | Include `https://localhost:3000` for dev (see `backend/.env.example`). |
+| **Docs** | Full sideload and production steps: [`outlook-addin/README.md`](outlook-addin/README.md). |
+
+Quick dev: start the backend, then `cd outlook-addin && npm install && npm run dev`, sideload `outlook-addin/manifest.xml` in Outlook, open a new email, and use the **WorkDesk AI** ribbon button.
 
 ---
 

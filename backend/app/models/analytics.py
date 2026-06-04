@@ -11,7 +11,9 @@ class UsageEvent(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     task_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    model: Mapped[str] = mapped_column(String(50), nullable=False)
+    model: Mapped[str] = mapped_column(String(120), nullable=False)
+    llm_source: Mapped[str | None] = mapped_column(String(10), nullable=True, default="local")
+    llm_provider: Mapped[str | None] = mapped_column(String(30), nullable=True)
     cached: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     input_chars: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

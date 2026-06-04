@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
 from app.models.task_settings import TaskSetting
-from app.prompts.templates import TASK_MODEL_MAP
+from app.prompts.templates import get_task_config
 from app.task_definitions import TASK_DEFINITION_BY_TYPE, TASK_DEFINITIONS
 
 
@@ -33,8 +33,9 @@ async def _get_settings_map(session: AsyncSession) -> dict[str, TaskSetting]:
     return {row.task_type: row for row in result.scalars().all()}
 
 
-def default_model_for(task_type: str) -> str:
-    return TASK_MODEL_MAP[task_type]["model"]
+async def default_model_for(task_type: str) -> str:
+    config = await get_task_config(task_type)
+    return config["model"]
 
 
 async def resolve_model(task_type: str) -> str:
@@ -42,7 +43,7 @@ async def resolve_model(task_type: str) -> str:
         row = await session.get(TaskSetting, task_type)
         if row and row.model_override:
             return row.model_override
-    return default_model_for(task_type)
+    return await default_model_for(task_type)
 
 
 async def is_task_active(task_type: str) -> bool:
@@ -75,12 +76,13 @@ async def list_admin_tasks() -> list[dict]:
         setting = settings_map.get(task_type)
         is_active = True if setting is None else setting.is_active
         model_override = None if setting is None else setting.model_override
+        default_model = await default_model_for(task_type)
         rows.append(
             {
                 **definition,
                 "is_active": is_active,
                 "model_override": model_override,
-                "default_model": default_model_for(task_type),
+                "default_model": default_model,
             }
         )
     return rows

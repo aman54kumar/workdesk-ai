@@ -25,6 +25,7 @@ import { BrandLogoComponent } from '../../shared/components/brand-logo/brand-log
         </header>
 
         <nav class="mb-6 flex flex-wrap gap-2 border-b border-stroke pb-3">
+          <a routerLink="/admin/llm-settings" routerLinkActive="admin-tab-active" class="admin-tab">LLM settings</a>
           <a routerLink="/admin/tools" routerLinkActive="admin-tab-active" class="admin-tab">Tools</a>
           <a routerLink="/admin/company-profile" routerLinkActive="admin-tab-active" class="admin-tab">
             Company profile

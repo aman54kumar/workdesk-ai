@@ -1,10 +1,11 @@
-import { Component, Input } from '@angular/core';
+import { Component, inject, Input } from '@angular/core';
+import { LlmSettingsService } from '../../../core/services/llm-settings.service';
 
 @Component({
   selector: 'app-queue-status',
   standalone: true,
   template: `
-    @if (position > 0) {
+    @if (!llm.isCloud() && position > 0) {
       <div
         class="mb-4 rounded-xl border border-accent/25 bg-accent/8 px-4 py-3 text-sm text-content"
       >
@@ -17,6 +18,7 @@ import { Component, Input } from '@angular/core';
   `,
 })
 export class QueueStatusComponent {
+  llm = inject(LlmSettingsService);
   @Input() position = 0;
   @Input() etaS = 0;
 }

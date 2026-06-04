@@ -7,6 +7,7 @@ import { HistoryService } from '../../../core/services/history.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { restoreFromHistory } from '../../../core/utils/restore-tool-history';
 import { startToolGeneration } from '../../../core/utils/tool-generation';
+import { LlmSourceBadgeComponent } from '../../../shared/components/llm-source-badge/llm-source-badge.component';
 import { GenerationActionsComponent } from '../../../shared/components/generation-actions/generation-actions.component';
 import { QueueStatusComponent } from '../../../shared/components/queue-status/queue-status.component';
 import { CopyButtonComponent } from '../../../shared/components/copy-button/copy-button.component';
@@ -15,7 +16,7 @@ import { OutputFeedbackComponent } from '../../../shared/components/output-feedb
 @Component({
   selector: 'app-email-composer',
   standalone: true,
-  imports: [FormsModule, GenerationActionsComponent, QueueStatusComponent, CopyButtonComponent, OutputFeedbackComponent],
+  imports: [FormsModule, GenerationActionsComponent, QueueStatusComponent, CopyButtonComponent, OutputFeedbackComponent, LlmSourceBadgeComponent],
   template: `
     <div class="page-wrap">
       <h2 class="page-title">Email Composer</h2>
@@ -67,6 +68,8 @@ import { OutputFeedbackComponent } from '../../../shared/components/output-feedb
       </div>
 
       <!-- Actions -->
+      <app-llm-source-badge />
+
       <div class="flex gap-2 mb-5">
         <app-generation-actions
           label="Generate"

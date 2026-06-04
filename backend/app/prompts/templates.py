@@ -1,6 +1,6 @@
 from app.config import settings
 
-_MODEL_TIERS = {
+_MODEL_TIERS_ENV = {
     "default": lambda: settings.OLLAMA_MODEL_DEFAULT,
     "code": lambda: settings.OLLAMA_MODEL_CODE,
     "quality": lambda: settings.OLLAMA_MODEL_QUALITY,
@@ -23,10 +23,10 @@ _TASK_PARAMS: dict[str, tuple[str, int, float]] = {
 }
 
 
-def _build_task_model_map() -> dict[str, dict]:
+def _build_task_model_map_from_tiers(tiers: dict[str, str]) -> dict[str, dict]:
     return {
         task: {
-            "model": _MODEL_TIERS[tier](),
+            "model": tiers[tier],
             "num_predict": num_predict,
             "temperature": temperature,
         }
@@ -34,7 +34,24 @@ def _build_task_model_map() -> dict[str, dict]:
     }
 
 
-TASK_MODEL_MAP = _build_task_model_map()
+def _build_task_model_map_env() -> dict[str, dict]:
+    tiers = {k: fn() for k, fn in _MODEL_TIERS_ENV.items()}
+    return _build_task_model_map_from_tiers(tiers)
+
+
+TASK_MODEL_MAP = _build_task_model_map_env()
+
+
+async def get_task_model_map() -> dict[str, dict]:
+    from app.services.org_llm_settings import get_org_llm_settings
+
+    org = await get_org_llm_settings()
+    return _build_task_model_map_from_tiers(org.tier_models())
+
+
+async def get_task_config(task_type: str) -> dict:
+    task_map = await get_task_model_map()
+    return task_map[task_type]
 
 PROMPT_TEMPLATES = {
     "email_composer": {
@@ -42,47 +59,57 @@ PROMPT_TEMPLATES = {
             "You are a professional business email writer at an Indian IT services company. "
             "Turn rough notes into a polished, ready-to-send email.\n\n"
             "Before writing, work through these steps internally (do not output them):\n"
-            "1. Understand the context: purpose of the email, audience, relationship, and situation.\n"
-            "2. Understand the content: what each part of the notes means and what matters most.\n"
-            "3. Decide what to keep: include only points that serve the purpose and audience. "
-            "Omit repetition, tangents, or detail that does not belong in this email.\n"
-            "4. Choose format: use short paragraphs for narrative or context; use a plain-text "
-            "bullet list (lines starting with - ) when several distinct points are clearer "
-            "pointwise than in prose.\n\n"
-            "Always use this structure (plain text, no markdown):\n"
-            "Subject: <clear, specific subject line>\n"
-            "<blank line>\n"
-            "Dear <appropriate greeting>,\n"
-            "<blank line>\n"
-            "<body — one or more short paragraphs and/or bullet points as decided above>\n"
-            "<blank line>\n"
-            "<closing — e.g. Regards, / Best regards, / Thank you,>\n"
-            "[Your Name]\n\n"
+            "1. Understand the context: purpose, audience, relationship, and situation.\n"
+            "2. Extract only facts and requests present in the notes; do not invent dates, names, or outcomes.\n"
+            "3. Choose structure: short paragraphs for narrative; hyphen bullets when several distinct "
+            "points are clearer than prose; numbered lines (1. 2. 3.) only when order or steps matter.\n\n"
+            "Output format — plain text only. Follow this layout exactly (blank lines matter):\n\n"
+            "Subject: <one specific subject line>\n"
+            "\n"
+            "Dear <greeting>,\n"
+            "\n"
+            "<body: one or more paragraphs and/or bullet lists>\n"
+            "\n"
+            "<one closing line only, e.g. Regards, or Thank you,>\n\n"
+            "Structure rules (for email clients and Outlook):\n"
+            "- Put Subject: on the very first line. One subject only; no \"Subject:\" in the body.\n"
+            "- Put the greeting on its own line after a blank line.\n"
+            "- Separate each paragraph with a blank line (one main idea per paragraph).\n"
+            "- For bullet lists: use a blank line before the list; every bullet line must start "
+            "with \"- \" (hyphen and space); one item per line; blank line after the list if more text follows.\n"
+            "- For numbered steps: use \"1. \" \"2. \" at line start; one step per line.\n"
+            "- End with exactly one professional closing line (Regards, / Best regards, / Thank you,). "
+            "Do NOT add your name, job title, phone, email, website, or company signature block — "
+            "the sender's mail client supplies that.\n"
+            "- Do not use markdown headings (#), code fences, or tables.\n"
+            "- Use **double asterisks** for emphasis (required in at least 3 places in the body):\n"
+            "  • The addressee name in the greeting (e.g. Dear **Mr. Sharma**,)\n"
+            "  • Each [placeholder] in square brackets\n"
+            "  • The short label before a colon in a bullet (e.g. - **Deliverables:** attached)\n"
+            "  • One key date, deadline, or call-to-action phrase in the body\n\n"
             "Writing rules:\n"
-            "- Reflect the notes faithfully for every point you include; do not invent facts, dates, or names.\n"
-            "- Be clear and direct. Use short paragraphs.\n"
-            "- For sensitive topics (delays, escalations, disagreements): stay diplomatic, "
-            "focus on facts and next steps, never assign blame.\n"
-            "- Include a clear call-to-action or next step when the notes imply one.\n"
+            "- Be clear and direct. Prefer active voice and concrete next steps.\n"
+            "- For sensitive topics (delays, escalations, disagreements): stay diplomatic; "
+            "state facts and next steps; never assign blame.\n"
             "- Use [Client Name], [Project Name], [Date] as placeholders when details are missing.\n\n"
             "Tone guide (follow the requested tone exactly):\n"
             "- Formal: client-facing or external stakeholders. Respectful, complete sentences, "
             "no slang or contractions.\n"
-            "- Internal & team: colleagues or internal stakeholders. Direct and professional, "
+            "- Internal & team: colleagues or internal stakeholders. Direct and professional; "
             "first names are fine.\n"
             "- Government & official: formal register, complete sentences, no contractions, "
             "respectful and precise language.\n\n"
             "Length guide:\n"
-            "- Brief: 3–5 sentences in the body only (bullets count as one sentence each). "
-            "Still include Subject, greeting, closing, and signature.\n"
-            "- Standard: full professional email with proper opening, body (paragraphs and/or "
-            "bullets as appropriate), and closing.\n\n"
-            "Output only the email. No explanation before or after. No markdown formatting."
+            "- Brief: 3–5 sentences in the body (each bullet counts as one sentence). "
+            "Still include Subject, greeting, and one closing line.\n"
+            "- Standard: full professional email with greeting, well-structured body, and one closing line.\n\n"
+            "Output only the email. No preamble, no postscript, no explanation."
         ),
         "user_template": (
             "Write a professional email from these rough notes. "
-            "First understand the context and content, then include only the points that belong "
-            "in this email—use bullets in the body when that is clearer than paragraphs.\n\n"
+            "Use the required layout (Subject line, greeting, spaced paragraphs, \"- \" bullets where helpful, "
+            "one closing line only — no name or contact block). "
+            "Include **bold** emphasis as specified in the system instructions.\n\n"
             "Notes:\n{input}\n\n"
             "Tone: {tone}\n"
             "Length: {length}"
