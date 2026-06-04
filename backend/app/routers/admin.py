@@ -10,6 +10,7 @@ from app.schemas.admin import (
     AdminLoginResponse,
     AppFeedbackRow,
     AdminDateBoundsResponse,
+    AnalyticsDashboardResponse,
     AnalyticsSummaryResponse,
     AnalyticsToolRow,
     CompanyProfileBulkSave,
@@ -28,6 +29,7 @@ from app.schemas.admin import (
 from app.services import company_profile_admin, prompts_admin, task_settings as task_settings_service
 from app.services.app_feedback import list_app_feedback
 from app.services.admin_dates import get_record_date_bounds
+from app.services.analytics_dashboard import build_analytics_dashboard
 from app.services.usage import analytics_by_tool, recent_feedback_comments
 from app.services.org_llm_settings import (
     config_to_admin_dict,
@@ -251,6 +253,17 @@ def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+@router.get("/analytics/dashboard", response_model=AnalyticsDashboardResponse)
+async def get_analytics_dashboard(
+    _: str = Depends(require_admin),
+    since: str | None = Query(None),
+    until: str | None = Query(None),
+):
+    since_dt, until_dt = _parse_dt(since), _parse_dt(until)
+    data = await build_analytics_dashboard(since_dt, until_dt)
+    return AnalyticsDashboardResponse(**data)
 
 
 @router.get("/analytics/summary", response_model=AnalyticsSummaryResponse)

@@ -128,6 +128,7 @@ export function streamGenerate(
       task_type: taskType,
       variables,
       skip_cache: skipCache,
+      client_source: 'outlook',
     };
     if (llm) requestBody['llm'] = llm;
 

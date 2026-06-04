@@ -118,7 +118,16 @@ Each tool’s prompt can be edited from the console. **Code holds the defaults; 
 
 ### Analytics
 
-Every generation records an anonymous usage event (tool, model, LLM source local/cloud, cached?, latency, status). The analytics page shows usage counts per tool, cache-hit rate, average latency, error/timeout/cancel counts, and a 👍 / 👎 summary with recent comments. No user inputs or outputs are stored.
+Every generation records an anonymous usage event (tool, model, LLM source local/cloud, cached?, latency, status, client IP, web vs Outlook). The **Analytics** admin page includes:
+
+- **Unique IPs** — distinct client IP addresses per request (uses `X-Forwarded-For` behind a proxy)
+- **Overview** — total requests, success rate, cache hits, latency, web vs Outlook split
+- **AI usage** — local vs cloud breakdown, cloud providers, top models
+- **Per tool** — popularity share, unique IPs, local/cloud mix, errors, satisfaction
+- **Unused tools** — enabled tools with zero use in the date range
+- **Daily trends**, **peak hours**, **top IPs**, and **feedback** summary
+
+No user inputs or outputs are stored.
 
 ### LLM configuration
 

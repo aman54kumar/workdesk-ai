@@ -79,6 +79,69 @@ export interface AnalyticsToolRow {
   thumbs_down: number;
 }
 
+export interface AnalyticsDashboard {
+  overview: {
+    total_requests: number;
+    unique_ips: number;
+    cache_hit_rate: number;
+    avg_latency_ms: number;
+    total_input_chars: number;
+    avg_requests_per_ip: number;
+    success_count: number;
+    error_count: number;
+    timeout_count: number;
+    cancelled_count: number;
+    success_rate: number;
+    failure_count: number;
+    requests_web: number;
+    requests_outlook: number;
+    requests_unknown_source: number;
+  };
+  tools: {
+    task_type: string;
+    display_name: string;
+    usage_count: number;
+    unique_ips: number;
+    share_pct: number;
+    cache_hit_rate: number;
+    avg_latency_ms: number;
+    errors: number;
+    timeouts: number;
+    cancelled: number;
+    local_count: number;
+    cloud_count: number;
+    thumbs_up: number;
+    thumbs_down: number;
+    satisfaction_rate: number | null;
+  }[];
+  llm: {
+    by_source: { source?: string; provider?: string; count: number; pct: number }[];
+    by_provider: { source?: string; provider?: string; count: number; pct: number }[];
+    by_model: { model: string; llm_source: string; count: number }[];
+  };
+  ips: {
+    unique_ips: number;
+    new_ips: number;
+    returning_ips: number;
+    tracking_note: string;
+    top_ips: {
+      ip_address: string;
+      request_count: number;
+      tools_used: number;
+      last_seen: string;
+    }[];
+  };
+  trends: { date: string; requests: number; unique_ips: number }[];
+  peak_hours: { hour: number; requests: number }[];
+  feedback: {
+    thumbs_up: number;
+    thumbs_down: number;
+    satisfaction_rate: number | null;
+    comment_count: number;
+  };
+  unused_tools: { task_type: string; display_name: string }[];
+}
+
 export interface FeedbackComment {
   id: number;
   task_type: string;
@@ -256,6 +319,14 @@ export class AdminService {
     return this.http.get<AdminDateBounds>(`${environment.apiUrl}/admin/date-bounds`, {
       headers: this.authHeaders(),
     });
+  }
+
+  getAnalyticsDashboard(since?: string, until?: string): Observable<AnalyticsDashboard> {
+    const params = this.rangeParams(since, until);
+    return this.http.get<AnalyticsDashboard>(
+      `${environment.apiUrl}/admin/analytics/dashboard`,
+      { headers: this.authHeaders(), params },
+    );
   }
 
   getAnalyticsSummary(since?: string, until?: string): Observable<AnalyticsSummary> {

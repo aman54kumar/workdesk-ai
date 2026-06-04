@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from app.schemas.feedback import AppFeedbackRequest, FeedbackRequest
 from app.services.app_feedback import submit_app_feedback
+from app.services.client_ip import get_client_ip
 from app.services.usage import submit_feedback
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
@@ -24,13 +25,6 @@ async def post_feedback(body: FeedbackRequest):
     return {"ok": True}
 
 
-def _client_ip(request: Request) -> str | None:
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip() or None
-    return request.client.host if request.client else None
-
-
 @router.post("/app")
 async def post_app_feedback(body: AppFeedbackRequest, request: Request):
     try:
@@ -39,7 +33,7 @@ async def post_app_feedback(body: AppFeedbackRequest, request: Request):
             issue=body.issue,
             email_or_phone=body.email_or_phone,
             page_url=body.page_url,
-            ip_address=_client_ip(request),
+            ip_address=get_client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
     except Exception as exc:

@@ -131,6 +131,7 @@ export class GenerateService {
         task_type: taskType,
         variables,
         skip_cache: skipCache,
+        client_source: 'web',
       };
       if (llm) {
         requestBody['llm'] = llm;

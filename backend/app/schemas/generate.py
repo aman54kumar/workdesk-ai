@@ -18,6 +18,7 @@ class GenerateRequest(BaseModel):
     variables: dict[str, str]
     skip_cache: bool = False
     llm: LlmSelection | None = None
+    client_source: Literal["web", "outlook"] | None = None
 
     @field_validator("task_type")
     @classmethod

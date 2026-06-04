@@ -17,6 +17,8 @@ async def record_usage(
     status: str,
     llm_source: str | None = "local",
     llm_provider: str | None = None,
+    client_ip: str | None = None,
+    client_source: str | None = None,
 ) -> None:
     async with AsyncSessionLocal() as session:
         session.add(
@@ -29,6 +31,8 @@ async def record_usage(
                 status=status,
                 llm_source=llm_source,
                 llm_provider=llm_provider,
+                client_ip=client_ip,
+                client_source=client_source,
             )
         )
         await session.commit()
