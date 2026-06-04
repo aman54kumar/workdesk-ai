@@ -32,7 +32,7 @@ async def build_analytics_dashboard(
             session, filters, since, until, overview["total_requests"]
         )
         llm = await _llm_breakdown(session, filters, overview["total_requests"])
-        ips = await _ip_activity(session, filters, since, until, overview)
+        systems = await _systems_activity(session, filters, since, until, overview)
         trends = await _daily_trends(session, filters)
         peak_hours = await _peak_hours(session, filters)
         feedback = await _feedback_summary(session, since, until)
@@ -41,7 +41,7 @@ async def build_analytics_dashboard(
             "overview": overview,
             "tools": tools,
             "llm": llm,
-            "ips": ips,
+            "systems": systems,
             "trends": trends,
             "peak_hours": peak_hours,
             "feedback": feedback,
@@ -63,9 +63,9 @@ async def _overview(session: AsyncSession, filters: list) -> dict:
     avg_latency = await session.scalar(
         select(func.avg(sub.c.latency_ms)).where(sub.c.cached.is_(False))
     )
-    unique_ips = await session.scalar(
-        select(func.count(func.distinct(sub.c.client_ip))).where(
-            sub.c.client_ip.isnot(None)
+    unique_systems = await session.scalar(
+        select(func.count(func.distinct(sub.c.system_id))).where(
+            sub.c.system_id.isnot(None)
         )
     ) or 0
     total_input_chars = (
@@ -104,11 +104,13 @@ async def _overview(session: AsyncSession, filters: list) -> dict:
 
     return {
         "total_requests": total,
-        "unique_ips": unique_ips,
+        "unique_systems": unique_systems,
         "cache_hit_rate": (cached / total) if total else 0.0,
         "avg_latency_ms": int(avg_latency or 0),
         "total_input_chars": int(total_input_chars),
-        "avg_requests_per_ip": round(total / unique_ips, 1) if unique_ips else 0.0,
+        "avg_requests_per_system": round(total / unique_systems, 1)
+        if unique_systems
+        else 0.0,
         "success_count": status_counts["success"],
         "error_count": status_counts["error"],
         "timeout_count": status_counts["timeout"],
@@ -132,7 +134,7 @@ async def _tools_breakdown(
         select(
             UsageEvent.task_type,
             func.count().label("usage_count"),
-            func.count(func.distinct(UsageEvent.client_ip)).label("unique_ips"),
+            func.count(func.distinct(UsageEvent.system_id)).label("unique_systems"),
             func.sum(case((UsageEvent.cached.is_(True), 1), else_=0)).label("cache_hits"),
             func.avg(
                 case((UsageEvent.cached.is_(False), UsageEvent.latency_ms), else_=None)
@@ -185,7 +187,7 @@ async def _tools_breakdown(
                 "task_type": task_type,
                 "display_name": defn.get("display_name", task_type),
                 "usage_count": usage,
-                "unique_ips": row.unique_ips or 0,
+                "unique_systems": row.unique_systems or 0,
                 "share_pct": round(100.0 * usage / total_requests, 1)
                 if total_requests
                 else 0.0,
@@ -272,29 +274,29 @@ async def _llm_breakdown(
     }
 
 
-async def _ip_activity(
+async def _systems_activity(
     session: AsyncSession,
     filters: list,
     since: datetime | None,
     until: datetime | None,
     overview: dict,
 ) -> dict:
-    unique_in_period = overview["unique_ips"]
+    unique_in_period = overview["unique_systems"]
 
     first_seen_sq = (
         select(
-            UsageEvent.client_ip.label("client_ip"),
+            UsageEvent.system_id.label("system_id"),
             func.min(UsageEvent.created_at).label("first_at"),
         )
-        .where(UsageEvent.client_ip.isnot(None))
-        .group_by(UsageEvent.client_ip)
+        .where(UsageEvent.system_id.isnot(None))
+        .group_by(UsageEvent.system_id)
         .subquery()
     )
 
-    new_ips = 0
-    returning_ips = 0
+    new_systems = 0
+    returning_systems = 0
     if since is not None and until is not None:
-        new_ips = (
+        new_systems = (
             await session.scalar(
                 select(func.count())
                 .select_from(first_seen_sq)
@@ -305,43 +307,17 @@ async def _ip_activity(
             )
             or 0
         )
-        returning_ips = max(0, unique_in_period - new_ips)
-
-    q_top = (
-        select(
-            UsageEvent.client_ip,
-            func.count().label("request_count"),
-            func.max(UsageEvent.created_at).label("last_seen"),
-            func.count(func.distinct(UsageEvent.task_type)).label("tools_used"),
-        )
-        .where(UsageEvent.client_ip.isnot(None))
-        .group_by(UsageEvent.client_ip)
-        .order_by(func.count().desc())
-        .limit(10)
-    )
-    if filters:
-        q_top = q_top.where(*filters)
-    top_ips = []
-    for row in (await session.execute(q_top)).all():
-        top_ips.append(
-            {
-                "ip_address": row.client_ip or "",
-                "request_count": row.request_count or 0,
-                "tools_used": row.tools_used or 0,
-                "last_seen": row.last_seen.isoformat() if row.last_seen else "",
-            }
-        )
+        returning_systems = max(0, unique_in_period - new_systems)
 
     return {
-        "unique_ips": unique_in_period,
-        "new_ips": new_ips,
-        "returning_ips": returning_ips,
+        "unique_systems": unique_in_period,
+        "new_systems": new_systems,
+        "returning_systems": returning_systems,
         "tracking_note": (
-            "Unique users are counted by client IP address (from X-Forwarded-For when "
-            "behind a reverse proxy, otherwise the direct connection IP). Colleagues "
-            "on the same office network or VPN may share one IP."
+            "Unique systems are counted using an anonymous ID stored in each browser "
+            "or Outlook host (one ID per device/profile). Counts are aggregate only — "
+            "no IP addresses or system identifiers are shown here."
         ),
-        "top_ips": top_ips,
     }
 
 
@@ -351,7 +327,7 @@ async def _daily_trends(session: AsyncSession, filters: list) -> list[dict]:
         select(
             day.label("day"),
             func.count().label("requests"),
-            func.count(func.distinct(UsageEvent.client_ip)).label("unique_ips"),
+            func.count(func.distinct(UsageEvent.system_id)).label("unique_systems"),
         )
         .group_by(day)
         .order_by(day)
@@ -362,7 +338,7 @@ async def _daily_trends(session: AsyncSession, filters: list) -> list[dict]:
         {
             "date": row.day,
             "requests": row.requests or 0,
-            "unique_ips": row.unique_ips or 0,
+            "unique_systems": row.unique_systems or 0,
         }
         for row in (await session.execute(q)).all()
     ]

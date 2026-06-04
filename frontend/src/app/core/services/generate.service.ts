@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { getSystemId } from '../utils/system-id';
 import { LlmSettingsService } from './llm-settings.service';
 
 export const MAX_INPUT_CHARS = 20000;
@@ -131,6 +132,7 @@ export class GenerateService {
         task_type: taskType,
         variables,
         skip_cache: skipCache,
+        system_id: getSystemId(),
         client_source: 'web',
       };
       if (llm) {

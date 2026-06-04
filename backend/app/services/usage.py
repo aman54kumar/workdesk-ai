@@ -17,7 +17,7 @@ async def record_usage(
     status: str,
     llm_source: str | None = "local",
     llm_provider: str | None = None,
-    client_ip: str | None = None,
+    system_id: str | None = None,
     client_source: str | None = None,
 ) -> None:
     async with AsyncSessionLocal() as session:
@@ -31,7 +31,7 @@ async def record_usage(
                 status=status,
                 llm_source=llm_source,
                 llm_provider=llm_provider,
-                client_ip=client_ip,
+                system_id=system_id,
                 client_source=client_source,
             )
         )

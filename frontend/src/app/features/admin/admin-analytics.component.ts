@@ -48,15 +48,15 @@ import {
       <p class="text-sm text-muted">Loading…</p>
     } @else {
       @if (dash(); as d) {
-      <p class="mb-4 text-xs text-muted">{{ d.ips.tracking_note }}</p>
+      <p class="mb-4 text-xs text-muted">{{ d.systems.tracking_note }}</p>
 
       <h2 class="mb-2 text-sm font-semibold">Overview</h2>
       <div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-2xl border border-stroke bg-surface p-4">
-          <p class="text-xs text-muted">Unique IPs</p>
-          <p class="text-2xl font-semibold">{{ d.overview.unique_ips }}</p>
+          <p class="text-xs text-muted">Unique systems</p>
+          <p class="text-2xl font-semibold">{{ d.overview.unique_systems }}</p>
           <p class="mt-1 text-xs text-muted">
-            {{ d.overview.avg_requests_per_ip | number: '1.0-1' }} req / IP avg
+            {{ d.overview.avg_requests_per_system | number: '1.0-1' }} req / system avg
           </p>
         </div>
         <div class="rounded-2xl border border-stroke bg-surface p-4">
@@ -86,12 +86,12 @@ import {
 
       <div class="mb-6 grid gap-3 sm:grid-cols-3">
         <div class="rounded-2xl border border-stroke bg-surface p-4">
-          <p class="text-xs text-muted">New IPs in range</p>
-          <p class="text-xl font-semibold">{{ d.ips.new_ips }}</p>
+          <p class="text-xs text-muted">New systems in range</p>
+          <p class="text-xl font-semibold">{{ d.systems.new_systems }}</p>
         </div>
         <div class="rounded-2xl border border-stroke bg-surface p-4">
-          <p class="text-xs text-muted">Returning IPs</p>
-          <p class="text-xl font-semibold">{{ d.ips.returning_ips }}</p>
+          <p class="text-xs text-muted">Returning systems</p>
+          <p class="text-xl font-semibold">{{ d.systems.returning_systems }}</p>
         </div>
         <div class="rounded-2xl border border-stroke bg-surface p-4">
           <p class="text-xs text-muted">Input volume</p>
@@ -159,7 +159,7 @@ import {
               <th class="px-4 py-3">Tool</th>
               <th class="px-4 py-3">Share</th>
               <th class="px-4 py-3">Requests</th>
-              <th class="px-4 py-3">IPs</th>
+              <th class="px-4 py-3">Systems</th>
               <th class="px-4 py-3">Local / Cloud</th>
               <th class="px-4 py-3">Cache %</th>
               <th class="px-4 py-3">Avg ms</th>
@@ -176,7 +176,7 @@ import {
                 </td>
                 <td class="px-4 py-3">{{ row.share_pct | number: '1.0-1' }}%</td>
                 <td class="px-4 py-3">{{ row.usage_count }}</td>
-                <td class="px-4 py-3">{{ row.unique_ips }}</td>
+                <td class="px-4 py-3">{{ row.unique_systems }}</td>
                 <td class="px-4 py-3 text-xs">{{ row.local_count }} / {{ row.cloud_count }}</td>
                 <td class="px-4 py-3">{{ (row.cache_hit_rate * 100) | number: '1.0-0' }}%</td>
                 <td class="px-4 py-3">{{ row.avg_latency_ms }}</td>
@@ -220,7 +220,7 @@ import {
               <tr>
                 <th class="px-4 py-2">Date</th>
                 <th class="px-4 py-2">Requests</th>
-                <th class="px-4 py-2">Unique IPs</th>
+                <th class="px-4 py-2">Unique systems</th>
               </tr>
             </thead>
             <tbody>
@@ -228,7 +228,7 @@ import {
                 <tr class="border-b border-stroke last:border-0">
                   <td class="px-4 py-2">{{ day.date }}</td>
                   <td class="px-4 py-2">{{ day.requests }}</td>
-                  <td class="px-4 py-2">{{ day.unique_ips }}</td>
+                  <td class="px-4 py-2">{{ day.unique_systems }}</td>
                 </tr>
               }
             </tbody>
@@ -241,32 +241,6 @@ import {
           Busiest hour (server time): <strong>{{ peak.hour }}:00</strong> with
           {{ peak.requests }} requests
         </p>
-      }
-
-      @if (d.ips.top_ips.length) {
-        <h2 class="mb-2 text-sm font-semibold">Most active IPs</h2>
-        <div class="mb-6 overflow-hidden rounded-2xl border border-stroke bg-surface">
-          <table class="w-full text-left text-sm">
-            <thead class="border-b border-stroke text-xs uppercase text-muted">
-              <tr>
-                <th class="px-4 py-2">IP address</th>
-                <th class="px-4 py-2">Requests</th>
-                <th class="px-4 py-2">Tools used</th>
-                <th class="px-4 py-2">Last active</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (c of d.ips.top_ips; track c.ip_address) {
-                <tr class="border-b border-stroke last:border-0">
-                  <td class="px-4 py-2 font-mono text-xs">{{ c.ip_address }}</td>
-                  <td class="px-4 py-2">{{ c.request_count }}</td>
-                  <td class="px-4 py-2">{{ c.tools_used }}</td>
-                  <td class="px-4 py-2 text-xs text-muted">{{ c.last_seen }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
       }
 
       <h2 class="mb-2 text-sm font-semibold">Feedback summary</h2>

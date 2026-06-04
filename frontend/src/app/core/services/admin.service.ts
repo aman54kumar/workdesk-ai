@@ -82,11 +82,11 @@ export interface AnalyticsToolRow {
 export interface AnalyticsDashboard {
   overview: {
     total_requests: number;
-    unique_ips: number;
+    unique_systems: number;
     cache_hit_rate: number;
     avg_latency_ms: number;
     total_input_chars: number;
-    avg_requests_per_ip: number;
+    avg_requests_per_system: number;
     success_count: number;
     error_count: number;
     timeout_count: number;
@@ -101,7 +101,7 @@ export interface AnalyticsDashboard {
     task_type: string;
     display_name: string;
     usage_count: number;
-    unique_ips: number;
+    unique_systems: number;
     share_pct: number;
     cache_hit_rate: number;
     avg_latency_ms: number;
@@ -119,19 +119,13 @@ export interface AnalyticsDashboard {
     by_provider: { source?: string; provider?: string; count: number; pct: number }[];
     by_model: { model: string; llm_source: string; count: number }[];
   };
-  ips: {
-    unique_ips: number;
-    new_ips: number;
-    returning_ips: number;
+  systems: {
+    unique_systems: number;
+    new_systems: number;
+    returning_systems: number;
     tracking_note: string;
-    top_ips: {
-      ip_address: string;
-      request_count: number;
-      tools_used: number;
-      last_seen: string;
-    }[];
   };
-  trends: { date: string; requests: number; unique_ips: number }[];
+  trends: { date: string; requests: number; unique_systems: number }[];
   peak_hours: { hour: number; requests: number }[];
   feedback: {
     thumbs_up: number;

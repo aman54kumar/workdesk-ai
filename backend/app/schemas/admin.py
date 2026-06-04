@@ -112,11 +112,11 @@ class FeedbackCommentRow(BaseModel):
 
 class AnalyticsOverview(BaseModel):
     total_requests: int
-    unique_ips: int
+    unique_systems: int
     cache_hit_rate: float
     avg_latency_ms: int
     total_input_chars: int
-    avg_requests_per_ip: float
+    avg_requests_per_system: float
     success_count: int
     error_count: int
     timeout_count: int
@@ -132,7 +132,7 @@ class AnalyticsToolDetail(BaseModel):
     task_type: str
     display_name: str
     usage_count: int
-    unique_ips: int
+    unique_systems: int
     share_pct: float
     cache_hit_rate: float
     avg_latency_ms: int
@@ -165,25 +165,17 @@ class AnalyticsLlmBreakdown(BaseModel):
     by_model: list[AnalyticsModelRow]
 
 
-class AnalyticsTopIp(BaseModel):
-    ip_address: str
-    request_count: int
-    tools_used: int
-    last_seen: str
-
-
-class AnalyticsIpActivity(BaseModel):
-    unique_ips: int
-    new_ips: int
-    returning_ips: int
+class AnalyticsSystemsActivity(BaseModel):
+    unique_systems: int
+    new_systems: int
+    returning_systems: int
     tracking_note: str
-    top_ips: list[AnalyticsTopIp]
 
 
 class AnalyticsDailyTrend(BaseModel):
     date: str
     requests: int
-    unique_ips: int
+    unique_systems: int
 
 
 class AnalyticsHourBucket(BaseModel):
@@ -207,7 +199,7 @@ class AnalyticsDashboardResponse(BaseModel):
     overview: AnalyticsOverview
     tools: list[AnalyticsToolDetail]
     llm: AnalyticsLlmBreakdown
-    ips: AnalyticsIpActivity
+    systems: AnalyticsSystemsActivity
     trends: list[AnalyticsDailyTrend]
     peak_hours: list[AnalyticsHourBucket]
     feedback: AnalyticsFeedbackSummary

@@ -52,6 +52,10 @@ async def _apply_sqlite_migrations(conn) -> None:
             await conn.execute(
                 text("ALTER TABLE usage_event ADD COLUMN client_ip VARCHAR(64)")
             )
+        if "system_id" not in col_names:
+            await conn.execute(
+                text("ALTER TABLE usage_event ADD COLUMN system_id VARCHAR(64)")
+            )
         if "client_source" not in col_names:
             await conn.execute(
                 text("ALTER TABLE usage_event ADD COLUMN client_source VARCHAR(20)")

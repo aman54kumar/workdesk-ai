@@ -18,7 +18,7 @@ class UsageEvent(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     input_chars: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    client_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    system_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     client_source: Mapped[str | None] = mapped_column(String(20), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -27,7 +27,7 @@ class UsageEvent(Base):
     __table_args__ = (
         Index("idx_usage_task_created", "task_type", "created_at"),
         Index("idx_usage_created", "created_at"),
-        Index("idx_usage_ip_created", "client_ip", "created_at"),
+        Index("idx_usage_system_created", "system_id", "created_at"),
     )
 
 

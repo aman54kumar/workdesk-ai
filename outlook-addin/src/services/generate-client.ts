@@ -1,3 +1,4 @@
+import { getSystemId } from './system-id';
 import { apiUrl } from './api-config';
 import {
   buildGeneratePayload,
@@ -128,6 +129,7 @@ export function streamGenerate(
       task_type: taskType,
       variables,
       skip_cache: skipCache,
+      system_id: getSystemId(),
       client_source: 'outlook',
     };
     if (llm) requestBody['llm'] = llm;

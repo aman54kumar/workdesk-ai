@@ -1,8 +1,11 @@
+import re
 from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
 from app.prompts.templates import VALID_TASK_TYPES
+
+_SYSTEM_ID_RE = re.compile(r"^[a-zA-Z0-9-]{8,64}$")
 
 
 class LlmSelection(BaseModel):
@@ -18,6 +21,7 @@ class GenerateRequest(BaseModel):
     variables: dict[str, str]
     skip_cache: bool = False
     llm: LlmSelection | None = None
+    system_id: str | None = None
     client_source: Literal["web", "outlook"] | None = None
 
     @field_validator("task_type")
@@ -29,6 +33,18 @@ class GenerateRequest(BaseModel):
                 f"Must be one of: {sorted(VALID_TASK_TYPES)}"
             )
         return v
+
+    @field_validator("system_id")
+    @classmethod
+    def validate_system_id(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        trimmed = v.strip()
+        if not trimmed:
+            return None
+        if not _SYSTEM_ID_RE.match(trimmed):
+            raise ValueError("Invalid system_id")
+        return trimmed
 
 
 class CancelJobRequest(BaseModel):

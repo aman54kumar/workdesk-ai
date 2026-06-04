@@ -3,7 +3,7 @@ import json
 import random
 import time
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from app.config import settings
@@ -31,7 +31,6 @@ from app.services.job_queue import (
 from app.services.llm_resolution import resolve_generation_llm
 from app.services.org_llm_settings import get_org_llm_settings
 from app.services.cloud_model_presets import get_cloud_model_presets
-from app.services.client_ip import get_client_ip
 from app.services.usage import record_usage
 
 router = APIRouter(prefix="/generate", tags=["generate"])
@@ -100,7 +99,7 @@ async def get_llm_options():
 
 
 @router.post("/stream")
-async def generate_stream(request: GenerateRequest, http_request: Request):
+async def generate_stream(request: GenerateRequest):
     if not await task_settings_service.is_task_active(request.task_type):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -230,7 +229,7 @@ async def generate_stream(request: GenerateRequest, http_request: Request):
                 status=final_status,
                 llm_source=resolved.source,
                 llm_provider=resolved.provider,
-                client_ip=get_client_ip(http_request),
+                system_id=request.system_id,
                 client_source=request.client_source,
             )
 
